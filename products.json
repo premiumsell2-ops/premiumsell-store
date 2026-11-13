@@ -1,0 +1,100 @@
+[
+  {
+    "id": "PRD-01",
+    "name": "Best Combo Plan (ON YOUR ID)",
+    "category": "Combo Offers",
+    "mrp": 999,
+    "price": 249,
+    "inStock": true,
+    "image": "https://placehold.co/600x600/1e1b4b/ffffff?text=COMBO+OFFER%0APrime+%2B+SonyLIV+%2B+Zee5",
+    "shortRule": "🚫IMPORTANT RULES🚫 Order Delivery Within 6 Hours. As soon as possible.",
+    "description": "Order Delivery Within 6 Hours. As soon as possible.\nOn Your Number / Email - Private Subscription.\nAll Device Usable - TV, SmartPhone, Laptop, PC etc.",
+    "moreDetails": "100% Genuine & Verified Subscription. Full replacement warranty for the entire plan duration.",
+    "variants": [
+      { "label": "1 MONTH COMBO", "mrp": 999, "price": 249, "razorpayLink": "" },
+      { "label": "3 MONTHS COMBO", "mrp": 2499, "price": 599, "razorpayLink": "" }
+    ]
+  },
+  {
+    "id": "PRD-02",
+    "name": "PRIME VIDEO",
+    "category": "OTT Subscriptions",
+    "mrp": 179,
+    "price": 49,
+    "inStock": true,
+    "image": "https://placehold.co/600x600/1d4ed8/ffffff?text=PRIME+VIDEO%0AExclusively+%40+49",
+    "shortRule": "🚨 Important Usage Guidelines: Order Delivery Within 6 Hours.",
+    "description": "Order Delivery Within 6 Hours. As soon as possible.\n4K UHD Supported | Single & Multi-Screen options available.\nWorks on Mobile, Smart TV & Laptop.",
+    "moreDetails": "Login via OTP / Credentials shared on WhatsApp immediately after order confirmation.",
+    "variants": [
+      { "label": "1 MONTH PRIVATE", "mrp": 179, "price": 49, "razorpayLink": "" },
+      { "label": "6 MONTHS PLAN", "mrp": 799, "price": 249, "razorpayLink": "" },
+      { "label": "12 MONTHS PLAN", "mrp": 1499, "price": 449, "razorpayLink": "" }
+    ]
+  },
+  {
+    "id": "PRD-03",
+    "name": "Netflix Premium 4k",
+    "category": "OTT Subscriptions",
+    "mrp": 649,
+    "price": 159,
+    "inStock": true,
+    "image": "https://placehold.co/600x600/7f1d1d/ffffff?text=NETFLIX+4K%0AExclusively+%40+159",
+    "shortRule": "🚫IMPORTANT RULES🚫 Order Delivery Within 6 Hours. As soon as possible.",
+    "description": "Ultra HD 4K + HDR Quality.\nDedicated PIN-protected profile.\nSmooth playback on TV, Mobile & Laptop.",
+    "moreDetails": "Do not change account password or profile settings to maintain uninterrupted warranty.",
+    "variants": [
+      { "label": "1 MONTH 4K", "mrp": 649, "price": 159, "razorpayLink": "" },
+      { "label": "3 MONTHS 4K", "mrp": 1947, "price": 449, "razorpayLink": "" },
+      { "label": "6 MONTHS 4K", "mrp": 3894, "price": 849, "razorpayLink": "" }
+    ]
+  },
+  {
+    "id": "PRD-04",
+    "name": "SonyLIVnPremium (ON YOUR ID)",
+    "category": "OTT Subscriptions",
+    "mrp": 999,
+    "price": 499,
+    "inStock": true,
+    "image": "https://placehold.co/600x600/312e81/ffffff?text=SonyLIV+Premium%0A12+Months+%40+499",
+    "shortRule": "🚫IMPORTANT RULES🚫 Order Delivery Within 6 Hours. As soon as possible.",
+    "description": "Order Delivery Within 6 Hours. As soon as possible.\n\nOn Your Number - Private Subscription\nAll Device Usable - TV, SmartPhone, Lap, PC etc.",
+    "moreDetails": "Direct activation on your own mobile number. Watch Live Sports, WWE, and Sony Originals in Full HD.",
+    "variants": [
+      { "label": "12 MONTHS LIV PREMIUM", "mrp": 999, "price": 499, "razorpayLink": "" },
+      { "label": "6 MONTHS LIV PREMIUM", "mrp": 699, "price": 299, "razorpayLink": "" }
+    ]
+  },
+  {
+    "id": "PRD-05",
+    "name": "Zee5 Premium 4K",
+    "category": "OTT Subscriptions",
+    "mrp": 299,
+    "price": 99,
+    "inStock": true,
+    "image": "https://placehold.co/600x600/3b0764/ffffff?text=ZEE5+PREMIUM%0AExclusively+%40+99",
+    "shortRule": "🚨 Important Usage Guidelines: Order Delivery Within 6 Hours.",
+    "description": "Full access to Zee5 Movies, Web Series & Live TV.\nSupports Smart TV & Mobile.",
+    "moreDetails": "Fast activation within 1 to 6 hours of order placement.",
+    "variants": [
+      { "label": "1 MONTH PLAN", "mrp": 299, "price": 99, "razorpayLink": "" },
+      { "label": "12 MONTHS PLAN", "mrp": 999, "price": 349, "razorpayLink": "" }
+    ]
+  },
+  {
+    "id": "PRD-06",
+    "name": "JioHotstar ON YOUR NUMBER",
+    "category": "OTT Subscriptions",
+    "mrp": 199,
+    "price": 99,
+    "inStock": true,
+    "image": "https://placehold.co/600x600/1e3a8a/ffffff?text=JioHotstar%0AExclusively+%40+99",
+    "shortRule": "🚨 Important Usage Guidelines: Order Delivery Within 6 Hours.",
+    "description": "Activated directly on your personal mobile number.\nLive Cricket, Movies & Shows included.",
+    "moreDetails": "100% private subscription on your own number.",
+    "variants": [
+      { "label": "1 MONTH", "mrp": 199, "price": 99, "razorpayLink": "" },
+      { "label": "3 MONTHS", "mrp": 499, "price": 249, "razorpayLink": "" }
+    ]
+  }
+]
