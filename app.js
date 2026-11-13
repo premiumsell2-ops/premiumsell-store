@@ -6,6 +6,7 @@ const CONFIG = {
   whatsappNumber: "916284854882",
   upiId: "6284854882@okbizaxis",
   merchantName: "Premiumsell",
+  scriptUrl: "https://script.google.com/macros/s/AKfycbxRZp36M01uVbUJ3oQ_ZbOb17bfmlhUtFO070NAhTuWY2l3rKK0QzYDTTlYJdkY-nHb/exec",
   currency: "₹"
 };
 
@@ -19,6 +20,10 @@ let slideInterval = null;
 let selectedProduct = null;
 let selectedVariantIndex = 0;
 let showAllVariants = false;
+
+let currentUniqueAmount = null;
+let isPaymentVerified = false;
+let verifyPollInterval = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   setupWhatsAppLinks();
@@ -41,8 +46,10 @@ function setupWhatsAppLinks() {
 
   const headerWa = document.getElementById("header-wa-link");
   const drawerWa = document.getElementById("drawer-wa-link");
+  const footerWa = document.getElementById("footer-wa-link");
   if (headerWa) headerWa.href = waUrl;
   if (drawerWa) drawerWa.href = waUrl;
+  if (footerWa) footerWa.href = waUrl;
 }
 
 async function loadProducts() {
@@ -425,7 +432,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & AUTO UPI QR PAYMENT
+// SHOPPING CART & UNIQUE PAISA AUTO-VERIFICATION
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -527,43 +534,158 @@ function proceedToUpiPayment() {
     return;
   }
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const note = `Order by ${name}`;
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(CONFIG.upiId)}&pn=${encodeURIComponent(CONFIG.merchantName)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent(note)}`;
+  const baseTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  // Generate unique paise (.11 to .89) to avoid cross-customer collision
+  const randomPaise = (Math.floor(Math.random() * 79) + 11) / 100;
+  currentUniqueAmount = (baseTotal + randomPaise).toFixed(2);
+  isPaymentVerified = false;
 
-  // Update Payment Screen Values
+  const note = `Order ${currentUniqueAmount}`;
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(CONFIG.upiId)}&pn=${encodeURIComponent(CONFIG.merchantName)}&am=${currentUniqueAmount}&cu=INR&tn=${encodeURIComponent(note)}`;
+
   const amountEl = document.getElementById("upi-pay-amount");
   const directLinkEl = document.getElementById("upi-direct-link");
   const qrContainer = document.getElementById("upi-qrcode");
   const titleEl = document.getElementById("cart-drawer-title");
 
-  if (amountEl) amountEl.textContent = `${CONFIG.currency}${totalAmount}`;
+  if (amountEl) amountEl.textContent = `${CONFIG.currency}${currentUniqueAmount}`;
   if (directLinkEl) directLinkEl.href = upiUrl;
   if (titleEl) titleEl.textContent = "Complete Payment";
 
-  // Generate Fresh QR Code for Exact Amount
   if (qrContainer) {
     qrContainer.innerHTML = "";
     if (typeof QRCode !== "undefined") {
       new QRCode(qrContainer, {
         text: upiUrl,
-        width: 190,
-        height: 190,
+        width: 185,
+        height: 185,
         colorDark: "#000000",
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.M
       });
     } else {
-      qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=${encodeURIComponent(upiUrl)}" alt="UPI QR" class="w-48 h-48" />`;
+      qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=185x185&data=${encodeURIComponent(upiUrl)}" alt="UPI QR" class="w-44 h-44" />`;
     }
   }
 
-  // Switch Cart Drawer to Step 2
+  // Reset UI states
+  const utrInput = document.getElementById("payment-utr");
+  if (utrInput) utrInput.value = "";
+  resetVerifyBoxUI();
+  validateUtrInput();
+
   document.getElementById("cart-step-1")?.classList.add("hidden");
   document.getElementById("cart-step-2")?.classList.remove("hidden");
+
+  // Start polling Google Apps Script every 4 seconds
+  startPaymentVerificationPolling();
+}
+
+function resetVerifyBoxUI() {
+  const box = document.getElementById("auto-verify-box");
+  const spinner = document.getElementById("verify-spinner");
+  const title = document.getElementById("verify-status-title");
+  const desc = document.getElementById("verify-status-desc");
+
+  if (box) box.className = "p-3 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center gap-3";
+  if (spinner) spinner.classList.remove("hidden");
+  if (title) {
+    title.textContent = "Waiting for Payment Confirmation...";
+    title.className = "text-xs font-bold text-violet-300";
+  }
+  if (desc) desc.textContent = "Pay karte hi 5–10 second mein automatically verify ho jayega.";
+}
+
+function startPaymentVerificationPolling() {
+  stopPaymentVerificationPolling();
+  verifyPollInterval = setInterval(checkPaymentStatus, 4000);
+}
+
+function stopPaymentVerificationPolling() {
+  if (verifyPollInterval) {
+    clearInterval(verifyPollInterval);
+    verifyPollInterval = null;
+  }
+}
+
+async function checkPaymentStatus() {
+  if (!currentUniqueAmount || isPaymentVerified) return;
+
+  try {
+    const res = await fetch(`${CONFIG.scriptUrl}?amount=${encodeURIComponent(currentUniqueAmount)}&t=${Date.now()}`);
+    const rawText = await res.text();
+    let data = null;
+    try {
+      data = JSON.parse(rawText);
+    } catch (_) {}
+
+    const verified =
+      (data && (data.verified === true || data.status === "verified" || data.found === true || data.success === true)) ||
+      rawText.toLowerCase().includes("verified") ||
+      rawText.trim() === "true";
+
+    if (verified) {
+      isPaymentVerified = true;
+      stopPaymentVerificationPolling();
+      onPaymentAutoVerified();
+    }
+  } catch (err) {
+    // Keep polling silently on temporary network hiccup
+  }
+}
+
+function onPaymentAutoVerified() {
+  const box = document.getElementById("auto-verify-box");
+  const spinner = document.getElementById("verify-spinner");
+  const title = document.getElementById("verify-status-title");
+  const desc = document.getElementById("verify-status-desc");
+  const btn = document.getElementById("confirm-paid-btn");
+
+  if (box) box.className = "p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center gap-3";
+  if (spinner) spinner.classList.add("hidden");
+  if (title) {
+    title.textContent = "✅ Payment Verified Automatically!";
+    title.className = "text-xs font-extrabold text-emerald-400";
+  }
+  if (desc) desc.textContent = `₹${currentUniqueAmount} received on Google Pay. Click below to send order!`;
+
+  if (btn) {
+    btn.disabled = false;
+    btn.className = "w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white cursor-pointer font-bold py-3.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2";
+    btn.innerHTML = `<span>Send Verified Order on WhatsApp →</span>`;
+  }
+}
+
+function isValidUtr(utr) {
+  if (!/^\d{12}$/.test(utr)) return false;
+  if (/^(\d)\1{11}$/.test(utr)) return false;
+  if (utr === "123456789012" || utr === "987654321098") return false;
+  return true;
+}
+
+function validateUtrInput() {
+  if (isPaymentVerified) return;
+
+  const utrInput = document.getElementById("payment-utr");
+  const btn = document.getElementById("confirm-paid-btn");
+  if (!utrInput || !btn) return;
+
+  utrInput.value = utrInput.value.replace(/\D/g, "");
+  const utr = utrInput.value;
+
+  if (isValidUtr(utr)) {
+    btn.disabled = false;
+    btn.className = "w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white cursor-pointer font-bold py-3.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2";
+    btn.innerHTML = `<span>I Have Paid • Send Order on WhatsApp</span>`;
+  } else {
+    btn.disabled = true;
+    btn.className = "w-full bg-slate-700 text-slate-400 cursor-not-allowed font-bold py-3.5 rounded-xl text-sm transition flex items-center justify-center gap-2";
+    btn.innerHTML = `<span>Complete Payment or Enter 12-Digit UTR</span>`;
+  }
 }
 
 function backToCartStep1() {
+  stopPaymentVerificationPolling();
   const titleEl = document.getElementById("cart-drawer-title");
   if (titleEl) titleEl.textContent = "Your Cart";
   document.getElementById("cart-step-2")?.classList.add("hidden");
@@ -583,10 +705,13 @@ function copyMerchantUpi() {
 function confirmPaidWhatsApp() {
   const name = document.getElementById("cust-name")?.value.trim();
   const phone = document.getElementById("cust-phone")?.value.trim();
-  const activationId = document.getElementById("cust-activation-id")?.value.trim();
   const utr = document.getElementById("payment-utr")?.value.trim();
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  if (!isPaymentVerified && !isValidUtr(utr)) {
+    alert("Please complete the UPI payment or enter a valid 12-digit UTR Number.");
+    return;
+  }
+
   const itemsText = cart
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
     .join("\n");
@@ -594,16 +719,13 @@ function confirmPaidWhatsApp() {
   let message = `*PAID ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
   message += `*Customer:* ${name}\n`;
   message += `*WhatsApp:* ${phone}\n`;
-  if (activationId) {
-    message += `*Activation ID:* ${activationId}\n`;
-  }
   message += `\n*Order Details:*\n${itemsText}\n\n`;
-  message += `*Amount Paid:* ${CONFIG.currency}${totalAmount}\n`;
-  message += `*Payment Method:* UPI (${CONFIG.upiId})\n`;
+  message += `*Unique Amount Paid:* ${CONFIG.currency}${currentUniqueAmount}\n`;
+  message += `*Verification:* ${isPaymentVerified ? "✅ Auto-Verified via GPay" : "UTR Submitted"}\n`;
   if (utr) {
     message += `*UTR / Ref No.:* ${utr}\n`;
   }
-  message += `\nI have completed the payment. Please activate my subscription!`;
+  message += `\nPlease activate my subscription!`;
 
   const waUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
   window.open(waUrl, "_blank");
@@ -636,6 +758,7 @@ function toggleCart(open) {
     overlay.classList.remove("hidden");
     drawer.classList.remove("translate-x-full");
   } else {
+    stopPaymentVerificationPolling();
     overlay.classList.add("hidden");
     drawer.classList.add("translate-x-full");
   }
@@ -643,6 +766,13 @@ function toggleCart(open) {
 
 function toggleCategoryModal(open) {
   const modal = document.getElementById("category-modal");
+  if (!modal) return;
+  if (open) modal.classList.remove("hidden");
+  else modal.classList.add("hidden");
+}
+
+function togglePolicyModal(open) {
+  const modal = document.getElementById("policy-modal");
   if (!modal) return;
   if (open) modal.classList.remove("hidden");
   else modal.classList.add("hidden");
