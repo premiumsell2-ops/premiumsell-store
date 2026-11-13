@@ -1,18 +1,20 @@
 [
   {
     "id": "PRD-01",
-    "name": "Best Combo Plan (ON YOUR ID)",
-    "category": "Combo Offers",
-    "mrp": 999,
-    "price": 249,
+    "name": "PRIME VIDEO",
+    "category": "All subscription",
+    "mrp": 179,
+    "price": 49,
     "inStock": true,
-    "image": "https://placehold.co/600x600/1e1b4b/ffffff?text=COMBO+OFFER%0APrime+%2B+SonyLIV+%2B+Zee5",
-    "shortRule": "🚫IMPORTANT RULES🚫 Order Delivery Within 6 Hours. As soon as possible.",
-    "description": "Order Delivery Within 6 Hours. As soon as possible.\nOn Your Number / Email - Private Subscription.\nAll Device Usable - TV, SmartPhone, Laptop, PC etc.",
-    "moreDetails": "100% Genuine & Verified Subscription. Full replacement warranty for the entire plan duration.",
+    "image": "prime video.png",
+    "shortRule": "🚨 Important Usage Guidelines: Order Delivery Within 6 Hours (As soon as possible).",
+    "description": "All Device Usable - TV, Smartphone, Laptop, PC etc.\n📵 Login on only one device at a time\n🚫 Do NOT use with Amazon App\n🚫 No shopping or other app use\n🚫 Do NOT change registered email\n🚫 Do NOT add or change mobile number",
+    "moreDetails": "100% Genuine & Verified Private Screen • Full Plan Warranty",
     "variants": [
-      { "label": "1 MONTH COMBO", "mrp": 999, "price": 249, "razorpayLink": "" },
-      { "label": "3 MONTHS COMBO", "mrp": 2499, "price": 599, "razorpayLink": "" }
+      { "label": "1 Month 1 Screen Private", "mrp": 179, "price": 49 },
+      { "label": "1 Month 2 Screen Private", "mrp": 179, "price": 79 },
+      { "label": "6 Months 1 Screen Private", "mrp": 999, "price": 249 },
+      { "label": "12 Months 1 Screen Private", "mrp": 1499, "price": 499 }
     ]
   },
   {
