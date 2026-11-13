@@ -82,11 +82,31 @@
   <section class="relative max-w-5xl mx-auto overflow-hidden bg-slate-950">
     <div id="hero-slides" class="flex transition-transform duration-500 ease-out">
       
-      <!-- Banner 1 -->
-      <div class="w-full flex-shrink-0 flex items-center justify-center bg-slate-950">
-        <a href="#catalog-section" class="w-full block">
-          <img src="Banner1.jpeg" alt="Offer Banner 1" class="w-full h-auto max-h-[460px] object-contain mx-auto" />
-        </a>
+<!-- Banner 1 (Background Image + Logo & Text Overlay) -->
+      <div class="w-full flex-shrink-0 relative min-h-[380px] sm:min-h-[430px] flex flex-col items-center justify-center text-center px-6 py-10 overflow-hidden bg-white">
+        <!-- Background Image (Faded) -->
+        <img src="Banner1.jpeg" alt="Background" class="absolute inset-0 w-full h-full object-cover opacity-35" />
+        
+        <!-- Logo + Title + Text + Button -->
+        <div class="relative z-10 flex flex-col items-center max-w-md">
+          <img 
+            src="logo.png" 
+            alt="Premiumsell Logo" 
+            onerror="this.style.display='none'; document.getElementById('fallback-logo').style.display='flex';"
+            class="w-16 h-16 rounded-xl object-cover shadow-md mb-3"
+          />
+          <div id="fallback-logo" style="display:none;" class="w-16 h-16 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-extrabold text-3xl items-center justify-center shadow-md mb-3">
+            S
+          </div>
+
+          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900">Premiumsell</h1>
+          <p class="text-xs sm:text-sm text-gray-800 font-medium mt-2 leading-relaxed">
+            Buy Subscriptions, at the Best Prices 🎉! Find and purchase popular OTT subscriptions like Amazon Prime Video, Sony Liv, Zee5, and more. Enjoy instant activation!
+          </p>
+          <a href="#catalog-section" class="mt-5 bg-black hover:bg-gray-900 text-white text-xs sm:text-sm font-semibold px-6 py-2.5 rounded-lg shadow">
+            Shop Now
+          </a>
+        </div>
       </div>
 
       <!-- Banner 2 -->
