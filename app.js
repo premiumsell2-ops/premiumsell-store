@@ -21,6 +21,7 @@ let selectedVariantIndex = 0;
 let showAllVariants = false;
 
 let currentOrderAmount = 0;
+let paymentTimerInterval = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   setupWhatsAppLinks();
@@ -429,7 +430,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & MANUAL UTR VERIFICATION
+// SHOPPING CART & 5-MINUTE COOLDOWN UTR FLOW
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -533,7 +534,6 @@ function proceedToUpiPayment() {
 
   if (cart.length === 0) return;
 
-  // Exact product total without any extra paise
   const baseTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   currentOrderAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
 
@@ -548,7 +548,6 @@ function proceedToUpiPayment() {
   if (amountEl) amountEl.textContent = `${CONFIG.currency}${currentOrderAmount}`;
   if (titleEl) titleEl.textContent = "Complete Payment";
 
-  // Safe QR Download button instead of risky upi:// deep-link
   if (directLinkEl) {
     directLinkEl.href = "#download-qr";
     directLinkEl.removeAttribute("target");
@@ -575,28 +574,90 @@ function proceedToUpiPayment() {
     }
   }
 
-  // Update info box to clean manual UTR instructions
-  const box = document.getElementById("auto-verify-box");
-  const spinner = document.getElementById("verify-spinner");
-  const statusTitle = document.getElementById("verify-status-title");
-  const statusDesc = document.getElementById("verify-status-desc");
-
-  if (box) box.className = "p-3 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center gap-3";
-  if (spinner) spinner.classList.add("hidden");
-  if (statusTitle) {
-    statusTitle.textContent = `Pay ${CONFIG.currency}${currentOrderAmount} & Enter Transaction ID`;
-    statusTitle.className = "text-xs font-bold text-violet-300";
-  }
-  if (statusDesc) {
-    statusDesc.textContent = "QR scan karein ya UPI ID copy karke payment karein, phir niche 12-digit UTR/Transaction ID daal kar submit karein.";
-  }
-
+  // Clean up UTR label & helper text to remove old auto-verify text
   const utrInput = document.getElementById("payment-utr");
-  if (utrInput) utrInput.value = "";
+  if (utrInput) {
+    utrInput.value = "";
+    const parent = utrInput.parentElement;
+    if (parent) {
+      const lbl = parent.querySelector("label");
+      if (lbl) lbl.textContent = "Enter 12-Digit UPI Transaction ID (UTR)";
+      const helpers = parent.querySelectorAll("p");
+      helpers.forEach((p) => {
+        if (p.textContent.toLowerCase().includes("auto-verify")) {
+          p.textContent = "Payment ke baad 12-digit UTR number daal kar order submit karein.";
+        }
+      });
+    }
+  }
+
   validateUtrInput();
 
   document.getElementById("cart-step-1")?.classList.add("hidden");
   document.getElementById("cart-step-2")?.classList.remove("hidden");
+
+  // Start 5-minute (300 seconds) live countdown timer
+  startPaymentCountdown(300);
+}
+
+function startPaymentCountdown(totalSeconds = 300) {
+  stopPaymentCountdown();
+  const box = document.getElementById("auto-verify-box");
+  if (!box) return;
+
+  let remaining = totalSeconds;
+
+  const renderTimer = () => {
+    const mins = String(Math.floor(remaining / 60)).padStart(2, "0");
+    const secs = String(remaining % 60).padStart(2, "0");
+    const isUrgent = remaining <= 60;
+
+    if (remaining <= 0) {
+      stopPaymentCountdown();
+      box.className = "p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-between gap-3";
+      box.innerHTML = `
+        <div>
+          <p class="text-xs font-extrabold text-rose-400">⏳ Payment Window Expired</p>
+          <p class="text-[11px] text-slate-300 mt-0.5">Timer dobara chalu karke payment aur UTR submit karein.</p>
+        </div>
+        <button type="button" onclick="startPaymentCountdown(300)" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex-shrink-0">
+          Restart 05:00
+        </button>
+      `;
+      return;
+    }
+
+    box.className = isUrgent
+      ? "p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-between gap-3"
+      : "p-3 rounded-xl bg-amber-500/10 border border-amber-500/35 flex items-center justify-between gap-3";
+
+    box.innerHTML = `
+      <div class="min-w-0">
+        <p class="text-xs font-extrabold ${isUrgent ? "text-rose-400" : "text-amber-300"}">
+          ⏳ Complete Payment Within 5 Minutes
+        </p>
+        <p class="text-[11px] text-slate-300 mt-0.5">
+          Jaldi ${CONFIG.currency}${currentOrderAmount} pay karke niche 12-digit UTR submit karein.
+        </p>
+      </div>
+      <div class="px-2.5 py-1.5 rounded-lg ${isUrgent ? "bg-rose-500/20 text-rose-300 border border-rose-500/40" : "bg-amber-500/20 text-amber-300 border border-amber-500/40"} font-mono text-sm font-extrabold flex-shrink-0">
+        ${mins}:${secs}
+      </div>
+    `;
+  };
+
+  renderTimer();
+  paymentTimerInterval = setInterval(() => {
+    remaining -= 1;
+    renderTimer();
+  }, 1000);
+}
+
+function stopPaymentCountdown() {
+  if (paymentTimerInterval) {
+    clearInterval(paymentTimerInterval);
+    paymentTimerInterval = null;
+  }
 }
 
 function downloadPaymentQr(upiUrl) {
@@ -671,6 +732,7 @@ function validateUtrInput() {
 }
 
 function backToCartStep1() {
+  stopPaymentCountdown();
   const titleEl = document.getElementById("cart-drawer-title");
   if (titleEl) titleEl.textContent = "Your Cart";
   document.getElementById("cart-step-2")?.classList.add("hidden");
@@ -696,6 +758,8 @@ function confirmPaidWhatsApp() {
     alert("Please enter a valid 12-digit UPI Transaction ID (UTR).");
     return;
   }
+
+  stopPaymentCountdown();
 
   const itemsText = cart
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
@@ -740,6 +804,7 @@ function toggleCart(open) {
     overlay.classList.remove("hidden");
     drawer.classList.remove("translate-x-full");
   } else {
+    stopPaymentCountdown();
     overlay.classList.add("hidden");
     drawer.classList.add("translate-x-full");
   }
