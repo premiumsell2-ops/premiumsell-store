@@ -83,13 +83,13 @@
   </header>
 
   <!-- ==========================================
-       HERO BANNER CAROUSEL (Full-Bleed Edge-to-Edge)
+       HERO BANNER CAROUSEL (Self-Adapting Edge-to-Edge)
   =========================================== -->
-  <section class="relative w-full overflow-hidden bg-gray-100">
+  <section class="relative w-full overflow-hidden bg-gray-50 border-b border-gray-100">
     <div id="hero-slides" class="flex transition-transform duration-500 ease-out">
       
       <!-- Banner 1 (Full-Width Background + Logo & Text Overlay) -->
-      <div class="w-full flex-shrink-0 relative h-[380px] sm:h-[460px] md:h-[520px] flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-white">
+      <div class="w-full flex-shrink-0 relative h-[380px] sm:h-[460px] md:h-[500px] flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-white">
         <img src="Banner1.jpeg" alt="Background" class="absolute inset-0 w-full h-full object-cover opacity-35" />
         
         <div class="relative z-10 flex flex-col items-center max-w-lg">
@@ -103,7 +103,7 @@
             S
           </div>
 
-          <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-gray-900">Premiumsell</h1>
+          <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-gray-900 uppercase">Premiumsell</h1>
           <p class="text-xs sm:text-base text-gray-800 font-medium mt-2.5 leading-relaxed">
             Buy Subscriptions, at the Best Prices 🎉! Find and purchase popular OTT subscriptions like Amazon Prime Video, Sony Liv, Zee5, and more. Enjoy instant activation!
           </p>
@@ -113,34 +113,34 @@
         </div>
       </div>
 
-      <!-- Banner 2 (Full-Width Edge-to-Edge, Zero Black Bars) -->
-      <div class="w-full flex-shrink-0 h-[380px] sm:h-[460px] md:h-[520px]">
+      <!-- Banner 2 (Full View - No Cutting, Auto Fits Screen) -->
+      <div class="w-full flex-shrink-0 h-[380px] sm:h-[460px] md:h-[500px] bg-white flex items-center justify-center">
         <a href="#catalog-section" class="w-full h-full block">
-          <img src="Banner2.jpg" alt="Offer Banner 2" class="w-full h-full object-cover object-center" />
+          <img src="Banner2.jpg" alt="Offer Banner 2" class="w-full h-full object-contain mx-auto" />
         </a>
       </div>
 
-      <!-- Banner 3 (Full-Width Edge-to-Edge, Zero Black Bars) -->
-      <div class="w-full flex-shrink-0 h-[380px] sm:h-[460px] md:h-[520px]">
+      <!-- Banner 3 (Full View - No Cutting, Auto Fits Screen) -->
+      <div class="w-full flex-shrink-0 h-[380px] sm:h-[460px] md:h-[500px] bg-white flex items-center justify-center">
         <a href="#catalog-section" class="w-full h-full block">
-          <img src="Banner3.jpg" alt="Offer Banner 3" class="w-full h-full object-cover object-center" />
+          <img src="Banner3.jpg" alt="Offer Banner 3" class="w-full h-full object-contain mx-auto" />
         </a>
       </div>
 
     </div>
 
     <!-- Left / Right Carousel Arrows -->
-    <button onclick="prevSlide()" aria-label="Previous Slide" class="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center">
+    <button onclick="prevSlide()" aria-label="Previous Slide" class="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/15 hover:bg-black/35 text-white flex items-center justify-center">
       ❮
     </button>
-    <button onclick="nextSlide()" aria-label="Next Slide" class="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center">
+    <button onclick="nextSlide()" aria-label="Next Slide" class="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/15 hover:bg-black/35 text-white flex items-center justify-center">
       ❯
     </button>
 
     <!-- Pagination Dots -->
     <div id="hero-dots" class="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5"></div>
   </section>
-
+  
   <!-- ==========================================
        CATEGORIES & FULL-WIDTH PRODUCT GRID
   =========================================== -->
