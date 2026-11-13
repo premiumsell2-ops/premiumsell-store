@@ -3,7 +3,9 @@
 // ==========================================
 const CONFIG = {
   storeName: "Premiumsell",
-  whatsappNumber: "916284854882", // <-- Yahan apna WhatsApp number dalein (e.g. 919876543210)
+  whatsappNumber: "916284854882",
+  upiId: "6284854882@okbizaxis",
+  merchantName: "Premiumsell",
   currency: "₹"
 };
 
@@ -261,7 +263,7 @@ function renderProducts() {
 }
 
 // ==========================================
-// PRODUCT DETAIL MODAL (White Border Selected Style + Full Poster)
+// PRODUCT DETAIL MODAL
 // ==========================================
 function openProductModal(productId) {
   const product = products.find((p) => p.id === productId);
@@ -362,12 +364,10 @@ function renderProductModalContent() {
   container.innerHTML = `
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10 items-start">
       
-      <!-- Left Column: 100% Full Uncropped Poster -->
       <div class="bg-[#131A2A] border border-slate-800 rounded-2xl p-3 sm:p-5 flex items-center justify-center md:sticky md:top-24">
         <img src="${selectedProduct.image}" alt="${selectedProduct.name}" class="w-full h-auto max-h-[540px] object-contain rounded-xl" />
       </div>
 
-      <!-- Right Column: Title, Price, Vertical Plans & Rules -->
       <div class="space-y-4">
         <div>
           <span class="text-xs font-semibold uppercase tracking-wider text-violet-400">${selectedProduct.category || "Subscription"}</span>
@@ -425,7 +425,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & WHATSAPP CHECKOUT
+// SHOPPING CART & AUTO UPI QR PAYMENT
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -518,10 +518,9 @@ function updateCartUI() {
     .join("");
 }
 
-function checkoutWhatsApp() {
+function proceedToUpiPayment() {
   const name = document.getElementById("cust-name")?.value.trim();
   const phone = document.getElementById("cust-phone")?.value.trim();
-  const activationId = document.getElementById("cust-activation-id")?.value.trim();
 
   if (!name || !phone) {
     alert("Please enter your Name and WhatsApp Number.");
@@ -529,19 +528,82 @@ function checkoutWhatsApp() {
   }
 
   const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const note = `Order by ${name}`;
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(CONFIG.upiId)}&pn=${encodeURIComponent(CONFIG.merchantName)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent(note)}`;
+
+  // Update Payment Screen Values
+  const amountEl = document.getElementById("upi-pay-amount");
+  const directLinkEl = document.getElementById("upi-direct-link");
+  const qrContainer = document.getElementById("upi-qrcode");
+  const titleEl = document.getElementById("cart-drawer-title");
+
+  if (amountEl) amountEl.textContent = `${CONFIG.currency}${totalAmount}`;
+  if (directLinkEl) directLinkEl.href = upiUrl;
+  if (titleEl) titleEl.textContent = "Complete Payment";
+
+  // Generate Fresh QR Code for Exact Amount
+  if (qrContainer) {
+    qrContainer.innerHTML = "";
+    if (typeof QRCode !== "undefined") {
+      new QRCode(qrContainer, {
+        text: upiUrl,
+        width: 190,
+        height: 190,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } else {
+      qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=${encodeURIComponent(upiUrl)}" alt="UPI QR" class="w-48 h-48" />`;
+    }
+  }
+
+  // Switch Cart Drawer to Step 2
+  document.getElementById("cart-step-1")?.classList.add("hidden");
+  document.getElementById("cart-step-2")?.classList.remove("hidden");
+}
+
+function backToCartStep1() {
+  const titleEl = document.getElementById("cart-drawer-title");
+  if (titleEl) titleEl.textContent = "Your Cart";
+  document.getElementById("cart-step-2")?.classList.add("hidden");
+  document.getElementById("cart-step-1")?.classList.remove("hidden");
+}
+
+function copyMerchantUpi() {
+  navigator.clipboard.writeText(CONFIG.upiId).then(() => {
+    const btn = document.getElementById("copy-upi-btn");
+    if (btn) {
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = "Copy ID"; }, 2000);
+    }
+  });
+}
+
+function confirmPaidWhatsApp() {
+  const name = document.getElementById("cust-name")?.value.trim();
+  const phone = document.getElementById("cust-phone")?.value.trim();
+  const activationId = document.getElementById("cust-activation-id")?.value.trim();
+  const utr = document.getElementById("payment-utr")?.value.trim();
+
+  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const itemsText = cart
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
     .join("\n");
 
-  let message = `*NEW ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
+  let message = `*PAID ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
   message += `*Customer:* ${name}\n`;
   message += `*WhatsApp:* ${phone}\n`;
   if (activationId) {
     message += `*Activation ID:* ${activationId}\n`;
   }
   message += `\n*Order Details:*\n${itemsText}\n\n`;
-  message += `*Total Payable:* ${CONFIG.currency}${totalAmount}\n`;
-  message += `Please share payment QR / link for fast activation.`;
+  message += `*Amount Paid:* ${CONFIG.currency}${totalAmount}\n`;
+  message += `*Payment Method:* UPI (${CONFIG.upiId})\n`;
+  if (utr) {
+    message += `*UTR / Ref No.:* ${utr}\n`;
+  }
+  message += `\nI have completed the payment. Please activate my subscription!`;
 
   const waUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
   window.open(waUrl, "_blank");
@@ -570,6 +632,7 @@ function toggleCart(open) {
   if (!overlay || !drawer) return;
 
   if (open) {
+    backToCartStep1();
     overlay.classList.remove("hidden");
     drawer.classList.remove("translate-x-full");
   } else {
