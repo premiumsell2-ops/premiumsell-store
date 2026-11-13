@@ -3,7 +3,7 @@
 // ==========================================
 const CONFIG = {
   storeName: "Premiumsell",
-  whatsappNumber: "916282854887", // Apna 10-digit number '91' ke saath dalein
+  whatsappNumber: "916284854882", // Apna 10-digit number '91' ke saath dalein
   currency: "₹"
 };
 
