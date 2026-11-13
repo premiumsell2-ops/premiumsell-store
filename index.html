@@ -19,41 +19,47 @@
 <body class="bg-white text-gray-900 font-sans antialiased pb-24">
 
   <!-- ==========================================
-       TOP STICKY HEADER
+       TOP STICKY HEADER (Full Screen Width)
   =========================================== -->
-  <header class="sticky top-0 z-30 bg-white border-b border-gray-200">
-    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-      <!-- Left: Hamburger Menu -->
-      <button onclick="toggleMenu(true)" aria-label="Menu" class="p-1.5 -ml-1.5 text-gray-800 hover:bg-gray-100 rounded-lg">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
+  <header class="sticky top-0 z-30 bg-white border-b border-gray-200 w-full">
+    <div class="w-full px-4 sm:px-8 h-14 sm:h-16 flex items-center justify-between">
+      <!-- Left: Hamburger Menu + Brand -->
+      <div class="flex items-center gap-3">
+        <button onclick="toggleMenu(true)" aria-label="Menu" class="p-1.5 -ml-1.5 text-gray-800 hover:bg-gray-100 rounded-lg">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <a href="#" onclick="resetHome(event)" id="header-brand" class="font-bold text-base sm:text-lg tracking-tight text-gray-900 uppercase">
+          PREMIUMSELL
+        </a>
+      </div>
 
-      <!-- Center Store Title -->
-      <a href="#" onclick="resetHome(event)" id="header-brand" class="font-bold text-base tracking-tight text-gray-900">
-        Premiumsell
-      </a>
+      <!-- Center Navigation (Desktop) -->
+      <nav class="hidden md:flex items-center gap-7 text-sm font-medium text-gray-700">
+        <a href="#" onclick="resetHome(event)" class="hover:text-[#5B21B6]">Home</a>
+        <a href="#catalog-section" class="hover:text-[#5B21B6]">Shop</a>
+        <button onclick="toggleCategoryModal(true)" class="hover:text-[#5B21B6]">Categories</button>
+      </nav>
 
       <!-- Right: Search + WhatsApp + Cart Icons -->
-      <div class="flex items-center gap-3.5">
-        <!-- Search Icon -->
-        <button onclick="toggleSearchBar()" aria-label="Search" class="p-1 text-gray-800 hover:text-purple-700">
+      <div class="flex items-center gap-4">
+        <button onclick="toggleSearchBar()" aria-label="Search" class="p-1 text-gray-800 hover:text-purple-700 flex items-center gap-1.5 text-sm">
+          <span class="hidden sm:inline text-gray-600">Search</span>
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="7" />
             <path stroke-linecap="round" d="M20 20l-3.5-3.5" />
           </svg>
         </button>
 
-        <!-- Green WhatsApp Direct Icon -->
         <a id="header-wa-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Support" class="w-7 h-7 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-sm hover:opacity-90">
           <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
             <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824z"/>
           </svg>
         </a>
 
-        <!-- Cart Icon with Badge -->
-        <button onclick="toggleCart(true)" aria-label="Cart" class="relative p-1 text-gray-900 hover:text-purple-700">
+        <button onclick="toggleCart(true)" aria-label="Cart" class="relative p-1 text-gray-900 hover:text-purple-700 flex items-center gap-1.5 text-sm">
+          <span class="hidden sm:inline text-gray-600">Cart</span>
           <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
             <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0020 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
           </svg>
@@ -63,8 +69,8 @@
     </div>
 
     <!-- Expandable Search Bar -->
-    <div id="search-bar-box" class="hidden border-t border-gray-100 bg-gray-50 px-4 py-2.5">
-      <div class="max-w-5xl mx-auto flex items-center gap-2">
+    <div id="search-bar-box" class="hidden border-t border-gray-100 bg-gray-50 px-4 sm:px-8 py-2.5">
+      <div class="max-w-3xl mx-auto flex items-center gap-2">
         <input 
           type="text" 
           id="search-input" 
@@ -77,18 +83,16 @@
   </header>
 
   <!-- ==========================================
-       HERO BANNER CAROUSEL (Custom Images)
+       HERO BANNER CAROUSEL (Full-Bleed Edge-to-Edge)
   =========================================== -->
-  <section class="relative max-w-5xl mx-auto overflow-hidden bg-slate-950">
+  <section class="relative w-full overflow-hidden bg-gray-100">
     <div id="hero-slides" class="flex transition-transform duration-500 ease-out">
       
-<!-- Banner 1 (Background Image + Logo & Text Overlay) -->
-      <div class="w-full flex-shrink-0 relative min-h-[380px] sm:min-h-[430px] flex flex-col items-center justify-center text-center px-6 py-10 overflow-hidden bg-white">
-        <!-- Background Image (Faded) -->
+      <!-- Banner 1 (Full-Width Background + Logo & Text Overlay) -->
+      <div class="w-full flex-shrink-0 relative h-[380px] sm:h-[460px] md:h-[520px] flex flex-col items-center justify-center text-center px-6 overflow-hidden bg-white">
         <img src="Banner1.jpeg" alt="Background" class="absolute inset-0 w-full h-full object-cover opacity-35" />
         
-        <!-- Logo + Title + Text + Button -->
-        <div class="relative z-10 flex flex-col items-center max-w-md">
+        <div class="relative z-10 flex flex-col items-center max-w-lg">
           <img 
             src="logo.png" 
             alt="Premiumsell Logo" 
@@ -99,82 +103,84 @@
             S
           </div>
 
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900">Premiumsell</h1>
-          <p class="text-xs sm:text-sm text-gray-800 font-medium mt-2 leading-relaxed">
+          <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-gray-900">Premiumsell</h1>
+          <p class="text-xs sm:text-base text-gray-800 font-medium mt-2.5 leading-relaxed">
             Buy Subscriptions, at the Best Prices 🎉! Find and purchase popular OTT subscriptions like Amazon Prime Video, Sony Liv, Zee5, and more. Enjoy instant activation!
           </p>
-          <a href="#catalog-section" class="mt-5 bg-black hover:bg-gray-900 text-white text-xs sm:text-sm font-semibold px-6 py-2.5 rounded-lg shadow">
+          <a href="#catalog-section" class="mt-5 bg-black hover:bg-gray-900 text-white text-xs sm:text-sm font-semibold px-7 py-2.5 rounded-lg shadow">
             Shop Now
           </a>
         </div>
       </div>
 
-      <!-- Banner 2 -->
-      <div class="w-full flex-shrink-0 flex items-center justify-center bg-slate-950">
-        <a href="#catalog-section" class="w-full block">
-          <img src="Banner2.jpg" alt="Offer Banner 2" class="w-full h-auto max-h-[460px] object-contain mx-auto" />
+      <!-- Banner 2 (Full-Width Edge-to-Edge, Zero Black Bars) -->
+      <div class="w-full flex-shrink-0 h-[380px] sm:h-[460px] md:h-[520px]">
+        <a href="#catalog-section" class="w-full h-full block">
+          <img src="Banner2.jpg" alt="Offer Banner 2" class="w-full h-full object-cover object-center" />
         </a>
       </div>
 
-      <!-- Banner 3 -->
-      <div class="w-full flex-shrink-0 flex items-center justify-center bg-slate-950">
-        <a href="#catalog-section" class="w-full block">
-          <img src="Banner3.jpg" alt="Offer Banner 3" class="w-full h-auto max-h-[460px] object-contain mx-auto" />
+      <!-- Banner 3 (Full-Width Edge-to-Edge, Zero Black Bars) -->
+      <div class="w-full flex-shrink-0 h-[380px] sm:h-[460px] md:h-[520px]">
+        <a href="#catalog-section" class="w-full h-full block">
+          <img src="Banner3.jpg" alt="Offer Banner 3" class="w-full h-full object-cover object-center" />
         </a>
       </div>
 
     </div>
 
     <!-- Left / Right Carousel Arrows -->
-    <button onclick="prevSlide()" aria-label="Previous Slide" class="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/35 hover:bg-black/55 text-white flex items-center justify-center">
+    <button onclick="prevSlide()" aria-label="Previous Slide" class="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center">
       ❮
     </button>
-    <button onclick="nextSlide()" aria-label="Next Slide" class="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/35 hover:bg-black/55 text-white flex items-center justify-center">
+    <button onclick="nextSlide()" aria-label="Next Slide" class="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center">
       ❯
     </button>
 
     <!-- Pagination Dots -->
-    <div id="hero-dots" class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5"></div>
+    <div id="hero-dots" class="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5"></div>
   </section>
 
   <!-- ==========================================
-       CATEGORIES & PRODUCT GRID
+       CATEGORIES & FULL-WIDTH PRODUCT GRID
   =========================================== -->
-  <main id="catalog-section" class="max-w-5xl mx-auto px-3.5 pt-7">
-    <div class="text-center mb-5">
-      <h2 class="text-xl font-bold text-gray-900">Categories</h2>
+  <main id="catalog-section" class="w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8">
+    <div class="text-center mb-6">
+      <h2 class="text-xl sm:text-2xl font-bold text-gray-900">Categories</h2>
     </div>
 
-    <div class="flex items-center justify-between mb-3.5">
+    <div class="flex items-center justify-between mb-4">
       <h3 id="active-category-title" class="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-800">
         ALL SUBSCRIPTIONS
       </h3>
       <span id="product-count-label" class="text-xs text-gray-500"></span>
     </div>
 
-    <!-- 2-Column Mobile / 4-Column Desktop Grid -->
-    <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5"></div>
+    <!-- 2-Column Mobile / 5-Column Laptop Grid -->
+    <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
   </main>
 
   <!-- ==========================================
-       FOOTER
+       FULL-WIDTH FOOTER
   =========================================== -->
-  <footer class="max-w-5xl mx-auto px-4 mt-14 pt-8 border-t border-gray-200 text-gray-700">
-    <div class="flex items-center gap-3 mb-4">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-extrabold text-xl flex items-center justify-center">
-        S
+  <footer class="w-full bg-gray-50 border-t border-gray-200 mt-16 py-8 px-4 sm:px-8 text-gray-700">
+    <div class="max-w-7xl mx-auto">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-extrabold text-xl flex items-center justify-center">
+          S
+        </div>
+        <span class="text-lg font-bold text-gray-900">Premiumsell</span>
       </div>
-      <span class="text-lg font-bold text-gray-900">Premiumsell</span>
-    </div>
-    <h4 class="text-sm font-bold text-gray-900 mb-1">About Us</h4>
-    <p class="text-xs text-gray-600 leading-relaxed max-w-lg">
-      Buy Subscriptions, at the Best Prices 🎉! Find and purchase popular OTT subscriptions like Amazon Prime Video, Sony Liv, Zee5, and more. Enjoy instant support and fast activation.
-    </p>
-    <div class="mt-5 pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-      <a href="#" onclick="resetHome(event)" class="flex items-center gap-1.5 font-medium text-gray-700 hover:text-purple-700">
-        <span>⌂</span> Home
-      </a>
-      <span>© 2026 Premiumsell</span>
+      <h4 class="text-sm font-bold text-gray-900 mb-1">About Us</h4>
+      <p class="text-xs sm:text-sm text-gray-600 leading-relaxed max-w-2xl">
+        Buy Subscriptions, at the Best Prices 🎉! Find and purchase popular OTT subscriptions like Amazon Prime Video, Sony Liv, Zee5, and more. Enjoy instant support and fast activation.
+      </p>
+      <div class="mt-6 pt-4 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+        <a href="#" onclick="resetHome(event)" class="flex items-center gap-1.5 font-medium text-gray-700 hover:text-purple-700">
+          <span>⌂</span> Home
+        </a>
+        <span>© 2026 Premiumsell</span>
+      </div>
     </div>
   </footer>
 
@@ -212,7 +218,6 @@
        PRODUCT DETAIL MODAL
   =========================================== -->
   <div id="product-modal" class="fixed inset-0 z-50 bg-white overflow-y-auto hidden">
-    <!-- Modal Top Bar -->
     <div class="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 h-14 flex items-center justify-between max-w-3xl mx-auto">
       <button onclick="closeProductModal()" class="flex items-center gap-1.5 text-sm font-semibold text-gray-800 hover:text-purple-700">
         <span>←</span> Back
@@ -225,10 +230,8 @@
       </button>
     </div>
 
-    <!-- Modal Body -->
     <div id="product-modal-content" class="max-w-3xl mx-auto pb-24"></div>
 
-    <!-- Sticky Bottom Dual Action Bar -->
     <div class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 p-3">
       <div class="max-w-3xl mx-auto grid grid-cols-2 gap-3">
         <button 
