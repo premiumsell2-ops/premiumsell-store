@@ -10,6 +10,8 @@ const CONFIG = {
   currency: "₹"
 };
 
+const PENDING_PAYMENT_KEY = "premiumsell_pending_payment";
+
 let products = [];
 let cart = JSON.parse(localStorage.getItem("premiumsell_cart") || "[]");
 let activeCategory = "All";
@@ -30,6 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initHeroCarousel();
   updateCartUI();
   loadProducts();
+  restorePendingPaymentIfAny();
 
   const searchInput = document.getElementById("search-input");
   if (searchInput) {
@@ -38,6 +41,19 @@ document.addEventListener("DOMContentLoaded", () => {
       renderProducts();
     });
   }
+
+  // Instant check when customer returns from GPay/PhonePe to browser
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && currentUniqueAmount && !isPaymentVerified) {
+      checkPaymentStatus(true);
+    }
+  });
+
+  window.addEventListener("focus", () => {
+    if (currentUniqueAmount && !isPaymentVerified) {
+      checkPaymentStatus(true);
+    }
+  });
 });
 
 function setupWhatsAppLinks() {
@@ -540,6 +556,58 @@ function proceedToUpiPayment() {
   currentUniqueAmount = (baseTotal + randomPaise).toFixed(2);
   isPaymentVerified = false;
 
+  // Save pending order so mobile browser reload while switching to GPay never loses amount
+  localStorage.setItem(
+    PENDING_PAYMENT_KEY,
+    JSON.stringify({
+      amount: currentUniqueAmount,
+      name,
+      phone,
+      cart,
+      createdAt: Date.now()
+    })
+  );
+
+  renderPaymentStep2UI();
+}
+
+function restorePendingPaymentIfAny() {
+  try {
+    const raw = localStorage.getItem(PENDING_PAYMENT_KEY);
+    if (!raw) return;
+
+    const pending = JSON.parse(raw);
+    const maxAge = 25 * 60 * 1000; // 25 minutes
+    if (!pending || !pending.amount || Date.now() - pending.createdAt > maxAge) {
+      localStorage.removeItem(PENDING_PAYMENT_KEY);
+      return;
+    }
+
+    currentUniqueAmount = pending.amount;
+    isPaymentVerified = false;
+    if (Array.isArray(pending.cart) && pending.cart.length > 0) {
+      cart = pending.cart;
+      updateCartUI();
+    }
+
+    const nameInput = document.getElementById("cust-name");
+    const phoneInput = document.getElementById("cust-phone");
+    if (nameInput && pending.name) nameInput.value = pending.name;
+    if (phoneInput && pending.phone) phoneInput.value = pending.phone;
+
+    const overlay = document.getElementById("cart-overlay");
+    const drawer = document.getElementById("cart-drawer");
+    if (overlay) overlay.classList.remove("hidden");
+    if (drawer) drawer.classList.remove("translate-x-full");
+
+    renderPaymentStep2UI();
+    checkPaymentStatus(true);
+  } catch (_) {
+    localStorage.removeItem(PENDING_PAYMENT_KEY);
+  }
+}
+
+function renderPaymentStep2UI() {
   const note = `Order ${currentUniqueAmount}`;
   const upiUrl = `upi://pay?pa=${encodeURIComponent(CONFIG.upiId)}&pn=${encodeURIComponent(CONFIG.merchantName)}&am=${currentUniqueAmount}&cu=INR&tn=${encodeURIComponent(note)}`;
 
@@ -549,8 +617,18 @@ function proceedToUpiPayment() {
   const titleEl = document.getElementById("cart-drawer-title");
 
   if (amountEl) amountEl.textContent = `${CONFIG.currency}${currentUniqueAmount}`;
-  if (directLinkEl) directLinkEl.href = upiUrl;
   if (titleEl) titleEl.textContent = "Complete Payment";
+
+  // Replace risky upi:// deep-link with safe QR Download for GPay/PhonePe Gallery Scan
+  if (directLinkEl) {
+    directLinkEl.href = "#download-qr";
+    directLinkEl.removeAttribute("target");
+    directLinkEl.textContent = "📥 Download QR (Scan from GPay / PhonePe Gallery)";
+    directLinkEl.onclick = (e) => {
+      e.preventDefault();
+      downloadPaymentQr(upiUrl);
+    };
+  }
 
   if (qrContainer) {
     qrContainer.innerHTML = "";
@@ -564,11 +642,10 @@ function proceedToUpiPayment() {
         correctLevel: QRCode.CorrectLevel.M
       });
     } else {
-      qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=185x185&data=${encodeURIComponent(upiUrl)}" alt="UPI QR" class="w-44 h-44" />`;
+      qrContainer.innerHTML = `<img id="qr-fallback-img" crossorigin="anonymous" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiUrl)}" alt="UPI QR" class="w-44 h-44" />`;
     }
   }
 
-  // Reset UI states
   const utrInput = document.getElementById("payment-utr");
   if (utrInput) utrInput.value = "";
   resetVerifyBoxUI();
@@ -577,8 +654,59 @@ function proceedToUpiPayment() {
   document.getElementById("cart-step-1")?.classList.add("hidden");
   document.getElementById("cart-step-2")?.classList.remove("hidden");
 
-  // Start polling Google Apps Script every 4 seconds
   startPaymentVerificationPolling();
+}
+
+function downloadPaymentQr(upiUrl) {
+  const qrContainer = document.getElementById("upi-qrcode");
+  const existingCanvas = qrContainer ? qrContainer.querySelector("canvas") : null;
+  const existingImg = qrContainer ? qrContainer.querySelector("img") : null;
+
+  const triggerDownload = (dataUrl) => {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `Premiumsell-Pay-${currentUniqueAmount}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    const desc = document.getElementById("verify-status-desc");
+    if (desc && !isPaymentVerified) {
+      desc.textContent = "QR Gallery mein save ho gaya! GPay/PhonePe mein 'Upload from Gallery' se pay karein.";
+    }
+  };
+
+  if (existingCanvas) {
+    // Add white margin around QR so gallery scanner reads it reliably
+    const padded = document.createElement("canvas");
+    const pad = 24;
+    padded.width = existingCanvas.width + pad * 2;
+    padded.height = existingCanvas.height + pad * 2;
+    const ctx = padded.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, padded.width, padded.height);
+    ctx.drawImage(existingCanvas, pad, pad);
+    triggerDownload(padded.toDataURL("image/png"));
+    return;
+  }
+
+  if (existingImg && existingImg.src.startsWith("data:")) {
+    triggerDownload(existingImg.src);
+    return;
+  }
+
+  // Fallback external QR download
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(upiUrl)}`;
+  fetch(qrApiUrl)
+    .then((r) => r.blob())
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      triggerDownload(url);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    })
+    .catch(() => {
+      window.open(qrApiUrl, "_blank");
+    });
 }
 
 function resetVerifyBoxUI() {
@@ -593,12 +721,14 @@ function resetVerifyBoxUI() {
     title.textContent = "Waiting for Payment Confirmation...";
     title.className = "text-xs font-bold text-violet-300";
   }
-  if (desc) desc.textContent = "Pay karte hi 5–10 second mein automatically verify ho jayega.";
+  if (desc) {
+    desc.innerHTML = `Pay karte hi 5–10 sec mein verify hoga. <button type="button" onclick="checkPaymentStatus(true)" class="underline font-bold text-violet-300 hover:text-white ml-1">Check Now</button>`;
+  }
 }
 
 function startPaymentVerificationPolling() {
   stopPaymentVerificationPolling();
-  verifyPollInterval = setInterval(checkPaymentStatus, 4000);
+  verifyPollInterval = setInterval(() => checkPaymentStatus(false), 3000);
 }
 
 function stopPaymentVerificationPolling() {
@@ -608,11 +738,19 @@ function stopPaymentVerificationPolling() {
   }
 }
 
-async function checkPaymentStatus() {
+async function checkPaymentStatus(isManual = false) {
   if (!currentUniqueAmount || isPaymentVerified) return;
 
+  const title = document.getElementById("verify-status-title");
+  if (isManual && title && !isPaymentVerified) {
+    title.textContent = "Checking Payment Status...";
+  }
+
   try {
-    const res = await fetch(`${CONFIG.scriptUrl}?amount=${encodeURIComponent(currentUniqueAmount)}&t=${Date.now()}`);
+    const res = await fetch(
+      `${CONFIG.scriptUrl}?amount=${encodeURIComponent(currentUniqueAmount)}&t=${Date.now()}`,
+      { cache: "no-store" }
+    );
     const rawText = await res.text();
     let data = null;
     try {
@@ -620,17 +758,22 @@ async function checkPaymentStatus() {
     } catch (_) {}
 
     const verified =
-      (data && (data.verified === true || data.status === "verified" || data.found === true || data.success === true)) ||
-      rawText.toLowerCase().includes("verified") ||
+      (data && (data.verified === true || data.status === "verified" || data.paid === true || data.found === true)) ||
+      rawText.toLowerCase().includes('"verified":true') ||
       rawText.trim() === "true";
 
     if (verified) {
       isPaymentVerified = true;
+      localStorage.removeItem(PENDING_PAYMENT_KEY);
       stopPaymentVerificationPolling();
       onPaymentAutoVerified();
+    } else if (isManual && title && !isPaymentVerified) {
+      title.textContent = "Waiting for Payment Confirmation...";
     }
   } catch (err) {
-    // Keep polling silently on temporary network hiccup
+    if (isManual && title && !isPaymentVerified) {
+      title.textContent = "Waiting for Payment Confirmation...";
+    }
   }
 }
 
@@ -686,6 +829,8 @@ function validateUtrInput() {
 
 function backToCartStep1() {
   stopPaymentVerificationPolling();
+  localStorage.removeItem(PENDING_PAYMENT_KEY);
+  currentUniqueAmount = null;
   const titleEl = document.getElementById("cart-drawer-title");
   if (titleEl) titleEl.textContent = "Your Cart";
   document.getElementById("cart-step-2")?.classList.add("hidden");
@@ -711,6 +856,8 @@ function confirmPaidWhatsApp() {
     alert("Please complete the UPI payment or enter a valid 12-digit UTR Number.");
     return;
   }
+
+  localStorage.removeItem(PENDING_PAYMENT_KEY);
 
   const itemsText = cart
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
@@ -754,7 +901,9 @@ function toggleCart(open) {
   if (!overlay || !drawer) return;
 
   if (open) {
-    backToCartStep1();
+    if (!currentUniqueAmount) {
+      backToCartStep1();
+    }
     overlay.classList.remove("hidden");
     drawer.classList.remove("translate-x-full");
   } else {
