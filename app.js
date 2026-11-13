@@ -3,10 +3,13 @@
 // ==========================================
 const CONFIG = {
   storeName: "Premiumsell",
-  whatsappNumber: "916284854882", // <-- Yahan apna WhatsApp number dalein (e.g. 919876543210)
+  whatsappNumber: "91XXXXXXXXXX", // <-- Yahan apna WhatsApp number dalein (e.g. 919876543210)
   currency: "₹"
 };
 
+// ==========================================
+// STATE VARIABLES
+// ==========================================
 let products = [];
 let cart = JSON.parse(localStorage.getItem("premiumsell_cart") || "[]");
 let activeCategory = "All";
@@ -18,6 +21,9 @@ let selectedProduct = null;
 let selectedVariantIndex = 0;
 let showAllVariants = false;
 
+// ==========================================
+// INITIALIZE STORE ON PAGE LOAD
+// ==========================================
 document.addEventListener("DOMContentLoaded", () => {
   setupWhatsAppLinks();
   initHeroCarousel();
@@ -43,6 +49,9 @@ function setupWhatsAppLinks() {
   if (drawerWa) drawerWa.href = waUrl;
 }
 
+// ==========================================
+// LOAD PRODUCTS FROM products.json
+// ==========================================
 async function loadProducts() {
   try {
     const res = await fetch(`products.json?v=${Date.now()}`);
@@ -97,12 +106,19 @@ function goToSlide(index) {
   startSlideTimer();
 }
 
-function nextSlide() { goToSlide(currentSlide + 1); }
-function prevSlide() { goToSlide(currentSlide - 1); }
+function nextSlide() {
+  goToSlide(currentSlide + 1);
+}
+
+function prevSlide() {
+  goToSlide(currentSlide - 1);
+}
 
 function startSlideTimer() {
   if (slideInterval) clearInterval(slideInterval);
-  slideInterval = setInterval(() => { goToSlide(currentSlide + 1); }, 4500);
+  slideInterval = setInterval(() => {
+    goToSlide(currentSlide + 1);
+  }, 4500);
 }
 
 // ==========================================
@@ -169,7 +185,9 @@ function toggleSearchBar() {
   const input = document.getElementById("search-input");
   if (!box) return;
   box.classList.toggle("hidden");
-  if (!box.classList.contains("hidden") && input) input.focus();
+  if (!box.classList.contains("hidden") && input) {
+    input.focus();
+  }
 }
 
 function clearSearch() {
@@ -261,7 +279,7 @@ function renderProducts() {
 }
 
 // ==========================================
-// FULL-SCREEN PRODUCT DETAIL MODAL (2-Col Desktop + Vertical Plans)
+// PRODUCT DETAIL MODAL (Vertical Plans + View More)
 // ==========================================
 function openProductModal(productId) {
   const product = products.find((p) => p.id === productId);
@@ -310,6 +328,7 @@ function renderProductModalContent() {
   const discount = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
   const outOfStock = selectedProduct.inStock === false;
 
+  // Show max 3 plans initially; expand all if "+ View more" clicked
   const visibleVariants = showAllVariants ? variants : variants.slice(0, 3);
   const hasMoreThanThree = variants.length > 3;
 
@@ -320,6 +339,7 @@ function renderProductModalContent() {
           SELECT :: <span class="text-violet-400">${activeVariant.label}</span>
         </p>
 
+        <!-- Vertical Stacked Plan Buttons -->
         <div class="flex flex-col gap-2.5">
           ${visibleVariants
             .map((v, idx) => {
@@ -330,12 +350,12 @@ function renderProductModalContent() {
                   onclick="selectVariant(${idx})"
                   class="w-full text-left px-4 py-3 rounded-lg border text-xs sm:text-sm transition flex items-center justify-between gap-3 ${
                     isSelected
-                      ? "bg-violet-600 border-violet-400 text-white font-bold shadow-md shadow-violet-600/25"
-                      : "bg-[#131A2A] border-slate-700 text-slate-200 font-medium hover:border-violet-500/60"
+                      ? "bg-violet-600/20 border-violet-500 text-white font-bold ring-1 ring-violet-500"
+                      : "bg-[#131A2A] border-slate-700 text-slate-200 font-medium hover:border-violet-500/50"
                   }"
                 >
                   <span class="truncate uppercase">${v.label}</span>
-                  <span class="flex-shrink-0 font-bold ${isSelected ? "text-white" : "text-slate-400"}">${CONFIG.currency}${v.price}</span>
+                  <span class="flex-shrink-0 font-bold ${isSelected ? "text-violet-300" : "text-slate-400"}">${CONFIG.currency}${v.price}</span>
                 </button>
               `;
             })
@@ -360,49 +380,44 @@ function renderProductModalContent() {
     : "";
 
   container.innerHTML = `
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10 items-start">
-      
-      <!-- Left Column: 100% Full Uncropped Poster -->
-      <div class="bg-[#131A2A] border border-slate-800 rounded-2xl p-3 sm:p-5 flex items-center justify-center md:sticky md:top-24">
-        <img src="${selectedProduct.image}" alt="${selectedProduct.name}" class="w-full h-auto max-h-[520px] object-contain rounded-xl" />
+    <div class="bg-[#131A2A] p-3">
+      <img src="${selectedProduct.image}" alt="${selectedProduct.name}" class="w-full max-h-[420px] object-contain rounded-xl mx-auto" />
+    </div>
+
+    <div class="px-4 sm:px-6 pt-4 space-y-4">
+      <div>
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-violet-400">${selectedProduct.category || "Subscription"}</span>
+        <h1 class="text-xl sm:text-2xl font-extrabold text-white mt-0.5">${selectedProduct.name}</h1>
+
+        <div class="mt-2 flex items-center gap-2.5">
+          <span class="text-2xl font-extrabold text-white">${CONFIG.currency}${price}</span>
+          ${mrp > price ? `<span class="text-sm text-slate-400 line-through">${CONFIG.currency}${mrp}</span>` : ""}
+          ${discount > 0 ? `<span class="bg-emerald-600 text-white text-xs font-bold px-2 py-0.5 rounded">${discount}% OFF</span>` : ""}
+        </div>
       </div>
 
-      <!-- Right Column: Title, Price, Vertical Plans & Rules -->
-      <div class="space-y-4">
-        <div>
-          <span class="text-xs font-semibold uppercase tracking-wider text-violet-400">${selectedProduct.category || "Subscription"}</span>
-          <h1 class="text-2xl sm:text-3xl font-extrabold text-white mt-1">${selectedProduct.name}</h1>
+      ${variantsHtml}
 
-          <div class="mt-2.5 flex items-center gap-3">
-            <span class="text-2xl sm:text-3xl font-extrabold text-white">${CONFIG.currency}${price}</span>
-            ${mrp > price ? `<span class="text-base text-slate-400 line-through">${CONFIG.currency}${mrp}</span>` : ""}
-            ${discount > 0 ? `<span class="bg-emerald-600 text-white text-xs font-bold px-2.5 py-0.5 rounded">${discount}% OFF</span>` : ""}
-          </div>
-        </div>
+      ${
+        selectedProduct.shortRule
+          ? `<div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs sm:text-sm leading-relaxed">${selectedProduct.shortRule}</div>`
+          : ""
+      }
 
-        ${variantsHtml}
-
-        ${
-          selectedProduct.shortRule
-            ? `<div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs sm:text-sm leading-relaxed">${selectedProduct.shortRule}</div>`
-            : ""
-        }
-
-        <div>
-          <h3 class="text-sm sm:text-base font-bold text-white mb-2">Product Description</h3>
-          <div class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">${selectedProduct.description || ""}</div>
-        </div>
-
-        ${
-          selectedProduct.moreDetails
-            ? `<div class="pt-3 border-t border-slate-800 text-xs sm:text-sm text-slate-400">${selectedProduct.moreDetails}</div>`
-            : ""
-        }
+      <div>
+        <h3 class="text-sm font-bold text-white mb-2">Product Description</h3>
+        <div class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">${selectedProduct.description || ""}</div>
       </div>
 
+      ${
+        selectedProduct.moreDetails
+          ? `<div class="pt-3 border-t border-slate-800 text-xs text-slate-400">${selectedProduct.moreDetails}</div>`
+          : ""
+      }
     </div>
   `;
 
+  // Wire bottom Add to Cart & Buy Now buttons
   const addBtn = document.getElementById("modal-add-btn");
   const buyBtn = document.getElementById("modal-buy-btn");
 
@@ -456,7 +471,9 @@ function updateCartQty(key, delta) {
   if (index === -1) return;
 
   cart[index].qty += delta;
-  if (cart[index].qty <= 0) cart.splice(index, 1);
+  if (cart[index].qty <= 0) {
+    cart.splice(index, 1);
+  }
 
   saveCart();
   updateCartUI();
@@ -581,6 +598,9 @@ function toggleCart(open) {
 function toggleCategoryModal(open) {
   const modal = document.getElementById("category-modal");
   if (!modal) return;
-  if (open) modal.classList.remove("hidden");
-  else modal.classList.add("hidden");
+  if (open) {
+    modal.classList.remove("hidden");
+  } else {
+    modal.classList.add("hidden");
+  }
 }
