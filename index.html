@@ -14,100 +14,15 @@
     }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-    /* Automatic Dark OTT Theme Styling for Dynamic Cards & Modals */
-    #product-grid .bg-white,
-    #product-modal-content .bg-white,
-    #cart-items .bg-white,
-    #category-modal-list .bg-white,
-    #drawer-categories .bg-white {
-      background-color: #131A2A !important;
-    }
-    #product-grid .bg-gray-50,
-    #product-grid .bg-gray-100,
-    #product-modal-content .bg-gray-50,
-    #product-modal-content .bg-gray-100,
-    #cart-items .bg-gray-50,
-    #category-modal-list .bg-gray-50,
-    #category-modal-list .hover\:bg-gray-100:hover,
-    #drawer-categories .hover\:bg-gray-100:hover {
-      background-color: #1E293B !important;
-    }
-    #product-grid .text-gray-900,
-    #product-grid .text-gray-800,
-    #product-modal-content .text-gray-900,
-    #product-modal-content .text-gray-800,
-    #cart-items .text-gray-900,
-    #cart-items .text-gray-800,
-    #category-modal-list .text-gray-900,
-    #category-modal-list .text-gray-800,
-    #drawer-categories .text-gray-800 {
-      color: #F8FAFC !important;
-    }
-    #product-grid .text-gray-700,
-    #product-grid .text-gray-600,
-    #product-grid .text-gray-500,
-    #product-modal-content .text-gray-700,
-    #product-modal-content .text-gray-600,
-    #product-modal-content .text-gray-500,
-    #cart-items .text-gray-600,
-    #cart-items .text-gray-500 {
-      color: #94A3B8 !important;
-    }
-    #product-grid .border-gray-200,
-    #product-grid .border-gray-100,
-    #product-modal-content .border-gray-200,
-    #product-modal-content .border-gray-300,
-    #cart-items .border-gray-200 {
-      border-color: #1E293B !important;
-    }
-    #product-grid .text-\[\#5B21B6\],
-    #product-modal-content .text-\[\#5B21B6\],
-    #cart-items .text-\[\#5B21B6\] {
-      color: #A78BFA !important;
-    }
-
-    /* Fix 1: Product Modal Image Pura Dikhe (No Cutting) */
-    #product-modal-content div:has(> img) {
-      height: auto !important;
-      max-height: none !important;
-      aspect-ratio: auto !important;
-      background-color: #131A2A !important;
-      padding: 12px !important;
-    }
-    #product-modal-content img {
-      width: 100% !important;
-      height: auto !important;
-      max-height: 440px !important;
-      object-fit: contain !important;
-      border-radius: 12px !important;
-      margin: 0 auto !important;
-    }
-
-    /* Fix 2: Selected Variant Plan Button High Contrast (Purple + White Text) */
-    #product-modal-content button[class*="bg-white"],
-    #product-modal-content button[class*="bg-gray-"],
-    #product-modal-content button[class*="bg-purple-"],
-    #product-modal-content button[class*="bg-indigo-"],
-    #product-modal-content button[class*="border-\[\#5B21B6\]"],
-    #product-modal-content button[class*="border-purple-"],
-    #product-modal-content button[class*="border-black"] {
-      background-color: #7C3AED !important;
-      border-color: #A78BFA !important;
-      color: #FFFFFF !important;
-      font-weight: 700 !important;
-      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35) !important;
-    }
   </style>
 </head>
 <body class="bg-[#0B0F19] text-slate-100 font-sans antialiased pb-24">
 
   <!-- ==========================================
-       TOP STICKY HEADER (Dark Glass Navigation)
+       TOP STICKY HEADER
   =========================================== -->
   <header class="sticky top-0 z-30 bg-[#0B0F19]/90 backdrop-blur-md border-b border-slate-800 w-full">
     <div class="w-full px-4 sm:px-8 h-14 sm:h-16 flex items-center justify-between">
-      <!-- Left: Hamburger Menu + Brand -->
       <div class="flex items-center gap-3">
         <button onclick="toggleMenu(true)" aria-label="Menu" class="p-1.5 -ml-1.5 text-slate-200 hover:bg-slate-800 rounded-lg">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -119,14 +34,12 @@
         </a>
       </div>
 
-      <!-- Center Navigation (Desktop) -->
       <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
         <a href="#" onclick="resetHome(event)" class="hover:text-violet-400 transition">Home</a>
         <a href="#catalog-section" class="hover:text-violet-400 transition">Shop</a>
         <button onclick="toggleCategoryModal(true)" class="hover:text-violet-400 transition">Categories</button>
       </nav>
 
-      <!-- Right: Search + WhatsApp + Cart Icons -->
       <div class="flex items-center gap-4">
         <button onclick="toggleSearchBar()" aria-label="Search" class="p-1 text-slate-200 hover:text-violet-400 flex items-center gap-1.5 text-sm">
           <span class="hidden sm:inline text-slate-400">Search</span>
@@ -152,7 +65,6 @@
       </div>
     </div>
 
-    <!-- Expandable Search Bar -->
     <div id="search-bar-box" class="hidden border-t border-slate-800 bg-[#111827] px-4 sm:px-8 py-2.5">
       <div class="max-w-3xl mx-auto flex items-center gap-2">
         <input 
@@ -167,12 +79,12 @@
   </header>
 
   <!-- ==========================================
-       HERO BANNER CAROUSEL (Sharp Full-Colour + Uncropped Slides)
+       HERO BANNER CAROUSEL
   =========================================== -->
   <section class="relative w-full overflow-hidden bg-[#0F1626] border-b border-slate-800">
     <div id="hero-slides" class="flex transition-transform duration-500 ease-out">
       
-      <!-- Banner 1 (Sharp Full-Colour Image + Dark Frosted Glass Overlay) -->
+      <!-- Banner 1 -->
       <div class="w-full flex-shrink-0 relative h-[400px] sm:h-[470px] md:h-[520px] flex flex-col items-center justify-center text-center px-4 sm:px-6 overflow-hidden bg-[#0B0F19]">
         <img src="Banner1.jpeg" alt="Background" class="absolute inset-0 w-full h-full object-cover opacity-95" />
         <div class="absolute inset-0 bg-gradient-to-t from-[#0B0F19] via-black/45 to-black/30"></div>
@@ -198,14 +110,14 @@
         </div>
       </div>
 
-      <!-- Banner 2 (100% Full View - No Cutting) -->
+      <!-- Banner 2 -->
       <div class="w-full flex-shrink-0 h-[400px] sm:h-[470px] md:h-[520px] bg-[#0F1626] flex items-center justify-center">
         <a href="#catalog-section" class="w-full h-full block">
           <img src="Banner2.jpg" alt="Offer Banner 2" class="w-full h-full object-contain mx-auto" />
         </a>
       </div>
 
-      <!-- Banner 3 (100% Full View - No Cutting) -->
+      <!-- Banner 3 -->
       <div class="w-full flex-shrink-0 h-[400px] sm:h-[470px] md:h-[520px] bg-[#0F1626] flex items-center justify-center">
         <a href="#catalog-section" class="w-full h-full block">
           <img src="Banner3.jpg" alt="Offer Banner 3" class="w-full h-full object-contain mx-auto" />
@@ -214,7 +126,6 @@
 
     </div>
 
-    <!-- Left / Right Carousel Arrows -->
     <button onclick="prevSlide()" aria-label="Previous Slide" class="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-violet-600 text-white border border-white/15 flex items-center justify-center transition">
       ❮
     </button>
@@ -222,7 +133,6 @@
       ❯
     </button>
 
-    <!-- Pagination Dots -->
     <div id="hero-dots" class="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5"></div>
   </section>
 
@@ -242,12 +152,11 @@
       <span id="product-count-label" class="text-xs text-slate-400"></span>
     </div>
 
-    <!-- 2-Column Mobile / 5-Column Laptop Grid -->
     <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
   </main>
 
   <!-- ==========================================
-       FULL-WIDTH DARK FOOTER
+       FULL-WIDTH FOOTER
   =========================================== -->
   <footer class="w-full bg-[#0F1626] border-t border-slate-800 mt-16 py-8 px-4 sm:px-8 text-slate-300">
     <div class="max-w-7xl mx-auto">
@@ -301,25 +210,30 @@
   </div>
 
   <!-- ==========================================
-       PRODUCT DETAIL MODAL
+       FULL-SCREEN PRODUCT DETAIL MODAL
   =========================================== -->
   <div id="product-modal" class="fixed inset-0 z-50 bg-[#0B0F19] text-slate-100 overflow-y-auto hidden">
-    <div class="sticky top-0 z-20 bg-[#0B0F19]/95 backdrop-blur-md border-b border-slate-800 px-4 h-14 flex items-center justify-between max-w-3xl mx-auto">
-      <button onclick="closeProductModal()" class="flex items-center gap-1.5 text-sm font-semibold text-slate-200 hover:text-violet-400">
-        <span>←</span> Back
-      </button>
-      <button onclick="closeProductModal(); toggleCart(true);" class="relative p-1 text-slate-100">
-        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0020 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-        </svg>
-        <span id="modal-cart-count" class="absolute -top-1 -right-1.5 bg-violet-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">0</span>
-      </button>
+    <div class="sticky top-0 z-20 bg-[#0B0F19]/95 backdrop-blur-md border-b border-slate-800 w-full">
+      <div class="max-w-7xl mx-auto px-4 sm:px-8 h-14 sm:h-16 flex items-center justify-between">
+        <button onclick="closeProductModal()" class="flex items-center gap-2 text-sm font-bold text-slate-200 hover:text-violet-400">
+          <span class="text-lg">←</span> Back to Store
+        </button>
+        <button onclick="closeProductModal(); toggleCart(true);" class="relative p-1.5 text-slate-100 hover:text-violet-400 flex items-center gap-1.5 text-sm">
+          <span class="hidden sm:inline text-slate-400">Cart</span>
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0020 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+          </svg>
+          <span id="modal-cart-count" class="absolute -top-0.5 -right-1 bg-violet-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">0</span>
+        </button>
+      </div>
     </div>
 
-    <div id="product-modal-content" class="max-w-3xl mx-auto pb-24"></div>
+    <!-- Full-Width Container (2-Column on Laptop, Stacked on Mobile) -->
+    <div id="product-modal-content" class="max-w-7xl mx-auto px-4 sm:px-8 pt-6 pb-28"></div>
 
-    <div class="fixed bottom-0 left-0 right-0 z-30 bg-[#131A2A] border-t border-slate-800 p-3">
-      <div class="max-w-3xl mx-auto grid grid-cols-2 gap-3">
+    <!-- Sticky Bottom Dual Action Bar -->
+    <div class="fixed bottom-0 left-0 right-0 z-30 bg-[#131A2A]/95 backdrop-blur-md border-t border-slate-800 p-3">
+      <div class="max-w-7xl mx-auto px-4 sm:px-8 grid grid-cols-2 gap-3 sm:max-w-xl">
         <button 
           id="modal-add-btn"
           class="w-full py-3 rounded-lg border border-slate-700 bg-[#1E293B] text-white font-semibold text-sm hover:bg-slate-700 transition"
@@ -390,6 +304,6 @@
     </div>
   </aside>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
