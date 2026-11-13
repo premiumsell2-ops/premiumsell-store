@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Premiumsell - Buy Subscriptions at Best Prices</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     .line-clamp-2 {
       display: -webkit-box;
@@ -14,6 +15,10 @@
     }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    #upi-qrcode img, #upi-qrcode canvas {
+      margin: 0 auto;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body class="bg-[#0B0F19] text-slate-100 font-sans antialiased pb-24">
@@ -133,7 +138,6 @@
   <main id="catalog-section" class="w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8">
     <div class="text-center mb-6">
       <h2 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Categories</h2>
-      <p class="text-xs text-slate-400 mt-1">  100% Verified Plans</p>
     </div>
 
     <div class="flex items-center justify-between mb-4">
@@ -250,37 +254,99 @@
     </div>
   </aside>
 
-  <!-- SLIDE-OVER SHOPPING CART DRAWER -->
+  <!-- SLIDE-OVER SHOPPING CART & AUTO UPI PAYMENT DRAWER -->
   <div id="cart-overlay" onclick="toggleCart(false)" class="fixed inset-0 bg-black/75 z-40 hidden"></div>
   <aside id="cart-drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-[#131A2A] border-l border-slate-800 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
     <div class="px-5 h-14 border-b border-slate-800 flex items-center justify-between">
-      <h2 class="text-base font-bold text-white">Your Cart</h2>
+      <h2 id="cart-drawer-title" class="text-base font-bold text-white">Your Cart</h2>
       <button onclick="toggleCart(false)" class="text-slate-400 hover:text-white text-2xl leading-none">×</button>
     </div>
 
-    <div id="cart-items" class="flex-1 overflow-y-auto p-5 space-y-4"></div>
+    <!-- STEP 1: CART ITEMS & CUSTOMER DETAILS -->
+    <div id="cart-step-1" class="flex-1 flex flex-col overflow-hidden">
+      <div id="cart-items" class="flex-1 overflow-y-auto p-5 space-y-4"></div>
 
-    <div id="cart-footer" class="border-t border-slate-800 p-5 bg-[#0F1626] space-y-3 hidden">
-      <div class="flex justify-between items-center text-base font-bold text-white">
-        <span>Total Payable:</span>
-        <span id="cart-total" class="text-violet-400">₹0</span>
+      <div id="cart-footer" class="border-t border-slate-800 p-5 bg-[#0F1626] space-y-3 hidden">
+        <div class="flex justify-between items-center text-base font-bold text-white">
+          <span>Total Payable:</span>
+          <span id="cart-total" class="text-violet-400">₹0</span>
+        </div>
+
+        <div class="space-y-2">
+          <input type="text" id="cust-name" placeholder="Your Name *" class="w-full px-3 py-2 text-sm bg-[#131A2A] text-white placeholder-slate-400 border border-slate-700 rounded-lg focus:outline-none focus:border-violet-500" />
+          <input type="tel" id="cust-phone" placeholder="WhatsApp Number (for delivery) *" class="w-full px-3 py-2 text-sm bg-[#131A2A] text-white placeholder-slate-400 border border-slate-700 rounded-lg focus:outline-none focus:border-violet-500" />
+          <input type="text" id="cust-activation-id" placeholder="Activation Number / Email ID (Optional)" class="w-full px-3 py-2 text-sm bg-[#131A2A] text-white placeholder-slate-400 border border-slate-700 rounded-lg focus:outline-none focus:border-violet-500" />
+        </div>
+
+        <button 
+          onclick="proceedToUpiPayment()" 
+          class="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold py-3 rounded-lg text-sm transition shadow-lg shadow-violet-600/30"
+        >
+          Proceed to Pay (UPI / QR) →
+        </button>
       </div>
+    </div>
 
-      <div class="space-y-2">
-        <input type="text" id="cust-name" placeholder="Your Name *" class="w-full px-3 py-2 text-sm bg-[#131A2A] text-white placeholder-slate-400 border border-slate-700 rounded-lg focus:outline-none focus:border-violet-500" />
-        <input type="tel" id="cust-phone" placeholder="WhatsApp Number (for delivery) *" class="w-full px-3 py-2 text-sm bg-[#131A2A] text-white placeholder-slate-400 border border-slate-700 rounded-lg focus:outline-none focus:border-violet-500" />
-        <input type="text" id="cust-activation-id" placeholder="Activation Number / Email ID (Optional)" class="w-full px-3 py-2 text-sm bg-[#131A2A] text-white placeholder-slate-400 border border-slate-700 rounded-lg focus:outline-none focus:border-violet-500" />
-      </div>
-
-      <button 
-        onclick="checkoutWhatsApp()" 
-        class="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold py-3 rounded-lg text-sm transition shadow-lg shadow-emerald-500/20"
-      >
-        Complete Order on WhatsApp
+    <!-- STEP 2: AUTO UPI QR CODE & DIRECT PAYMENT LINK -->
+    <div id="cart-step-2" class="flex-1 overflow-y-auto p-5 space-y-4 hidden">
+      <button onclick="backToCartStep1()" class="text-xs font-semibold text-violet-400 hover:text-violet-300 flex items-center gap-1">
+        ← Edit Cart / Details
       </button>
+
+      <div class="bg-[#0F1626] border border-slate-800 rounded-2xl p-4 text-center space-y-3">
+        <span class="inline-block px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold">
+          Google Pay Verified Merchant
+        </span>
+
+        <div>
+          <p class="text-xs text-slate-400">Scan & Pay Exact Amount</p>
+          <p id="upi-pay-amount" class="text-3xl font-extrabold text-white mt-0.5">₹0</p>
+        </div>
+
+        <!-- Auto-Generated Dynamic QR Box -->
+        <div class="bg-white p-3 rounded-xl inline-block mx-auto shadow-lg">
+          <div id="upi-qrcode"></div>
+        </div>
+
+        <p class="text-[11px] text-slate-400">Scan using GPay, PhonePe, Paytm or any UPI App</p>
+
+        <!-- Direct Mobile UPI Intent Button -->
+        <a 
+          id="upi-direct-link" 
+          href="#" 
+          class="block w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg transition"
+        >
+          Pay Now via GPay / UPI App
+        </a>
+
+        <!-- Copy Merchant UPI ID Box -->
+        <div class="flex items-center justify-between bg-[#131A2A] border border-slate-700 rounded-lg px-3 py-2 text-xs">
+          <span id="merchant-upi-text" class="text-slate-300 font-mono">6284854882@okbizaxis</span>
+          <button onclick="copyMerchantUpi()" id="copy-upi-btn" class="text-violet-400 hover:text-violet-300 font-bold">
+            Copy ID
+          </button>
+        </div>
+      </div>
+
+      <!-- Optional UTR + Final Confirmation Button -->
+      <div class="space-y-2.5 pt-1">
+        <input 
+          type="text" 
+          id="payment-utr" 
+          placeholder="UTR / Ref No. (Optional - for faster check)" 
+          class="w-full px-3 py-2.5 text-sm bg-[#0F1626] text-white placeholder-slate-400 border border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500" 
+        />
+
+        <button 
+          onclick="confirmPaidWhatsApp()" 
+          class="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold py-3.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+        >
+          <span>I Have Paid • Send Order on WhatsApp</span>
+        </button>
+      </div>
     </div>
   </aside>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
