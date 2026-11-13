@@ -6,11 +6,8 @@ const CONFIG = {
   whatsappNumber: "916284854882",
   upiId: "6284854882@okbizaxis",
   merchantName: "Premiumsell",
-  scriptUrl: "https://script.google.com/macros/s/AKfycbxRZp36M01uVbUJ3oQ_ZbOb17bfmlhUtFO070NAhTuWY2l3rKK0QzYDTTlYJdkY-nHb/exec",
   currency: "₹"
 };
-
-const PENDING_PAYMENT_KEY = "premiumsell_pending_payment";
 
 let products = [];
 let cart = JSON.parse(localStorage.getItem("premiumsell_cart") || "[]");
@@ -23,16 +20,13 @@ let selectedProduct = null;
 let selectedVariantIndex = 0;
 let showAllVariants = false;
 
-let currentUniqueAmount = null;
-let isPaymentVerified = false;
-let verifyPollInterval = null;
+let currentOrderAmount = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
   setupWhatsAppLinks();
   initHeroCarousel();
   updateCartUI();
   loadProducts();
-  restorePendingPaymentIfAny();
 
   const searchInput = document.getElementById("search-input");
   if (searchInput) {
@@ -41,19 +35,6 @@ document.addEventListener("DOMContentLoaded", () => {
       renderProducts();
     });
   }
-
-  // Instant check when customer returns from GPay/PhonePe to browser
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && currentUniqueAmount && !isPaymentVerified) {
-      checkPaymentStatus(true);
-    }
-  });
-
-  window.addEventListener("focus", () => {
-    if (currentUniqueAmount && !isPaymentVerified) {
-      checkPaymentStatus(true);
-    }
-  });
 });
 
 function setupWhatsAppLinks() {
@@ -448,7 +429,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & UNIQUE PAISA AUTO-VERIFICATION
+// SHOPPING CART & MANUAL UTR VERIFICATION
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -550,80 +531,28 @@ function proceedToUpiPayment() {
     return;
   }
 
+  if (cart.length === 0) return;
+
+  // Exact product total without any extra paise
   const baseTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  // Generate unique paise (.11 to .89) to avoid cross-customer collision
-  const randomPaise = (Math.floor(Math.random() * 79) + 11) / 100;
-  currentUniqueAmount = (baseTotal + randomPaise).toFixed(2);
-  isPaymentVerified = false;
+  currentOrderAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
 
-  // Save pending order so mobile browser reload while switching to GPay never loses amount
-  localStorage.setItem(
-    PENDING_PAYMENT_KEY,
-    JSON.stringify({
-      amount: currentUniqueAmount,
-      name,
-      phone,
-      cart,
-      createdAt: Date.now()
-    })
-  );
-
-  renderPaymentStep2UI();
-}
-
-function restorePendingPaymentIfAny() {
-  try {
-    const raw = localStorage.getItem(PENDING_PAYMENT_KEY);
-    if (!raw) return;
-
-    const pending = JSON.parse(raw);
-    const maxAge = 25 * 60 * 1000; // 25 minutes
-    if (!pending || !pending.amount || Date.now() - pending.createdAt > maxAge) {
-      localStorage.removeItem(PENDING_PAYMENT_KEY);
-      return;
-    }
-
-    currentUniqueAmount = pending.amount;
-    isPaymentVerified = false;
-    if (Array.isArray(pending.cart) && pending.cart.length > 0) {
-      cart = pending.cart;
-      updateCartUI();
-    }
-
-    const nameInput = document.getElementById("cust-name");
-    const phoneInput = document.getElementById("cust-phone");
-    if (nameInput && pending.name) nameInput.value = pending.name;
-    if (phoneInput && pending.phone) phoneInput.value = pending.phone;
-
-    const overlay = document.getElementById("cart-overlay");
-    const drawer = document.getElementById("cart-drawer");
-    if (overlay) overlay.classList.remove("hidden");
-    if (drawer) drawer.classList.remove("translate-x-full");
-
-    renderPaymentStep2UI();
-    checkPaymentStatus(true);
-  } catch (_) {
-    localStorage.removeItem(PENDING_PAYMENT_KEY);
-  }
-}
-
-function renderPaymentStep2UI() {
-  const note = `Order ${currentUniqueAmount}`;
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(CONFIG.upiId)}&pn=${encodeURIComponent(CONFIG.merchantName)}&am=${currentUniqueAmount}&cu=INR&tn=${encodeURIComponent(note)}`;
+  const note = `Order ${currentOrderAmount}`;
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(CONFIG.upiId)}&pn=${encodeURIComponent(CONFIG.merchantName)}&am=${currentOrderAmount}&cu=INR&tn=${encodeURIComponent(note)}`;
 
   const amountEl = document.getElementById("upi-pay-amount");
   const directLinkEl = document.getElementById("upi-direct-link");
   const qrContainer = document.getElementById("upi-qrcode");
   const titleEl = document.getElementById("cart-drawer-title");
 
-  if (amountEl) amountEl.textContent = `${CONFIG.currency}${currentUniqueAmount}`;
+  if (amountEl) amountEl.textContent = `${CONFIG.currency}${currentOrderAmount}`;
   if (titleEl) titleEl.textContent = "Complete Payment";
 
-  // Replace risky upi:// deep-link with safe QR Download for GPay/PhonePe Gallery Scan
+  // Safe QR Download button instead of risky upi:// deep-link
   if (directLinkEl) {
     directLinkEl.href = "#download-qr";
     directLinkEl.removeAttribute("target");
-    directLinkEl.textContent = "📥 Download QR (Scan from GPay / PhonePe Gallery)";
+    directLinkEl.textContent = "📥 Download QR Code (Scan via Gallery)";
     directLinkEl.onclick = (e) => {
       e.preventDefault();
       downloadPaymentQr(upiUrl);
@@ -642,19 +571,32 @@ function renderPaymentStep2UI() {
         correctLevel: QRCode.CorrectLevel.M
       });
     } else {
-      qrContainer.innerHTML = `<img id="qr-fallback-img" crossorigin="anonymous" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiUrl)}" alt="UPI QR" class="w-44 h-44" />`;
+      qrContainer.innerHTML = `<img crossorigin="anonymous" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiUrl)}" alt="UPI QR" class="w-44 h-44" />`;
     }
+  }
+
+  // Update info box to clean manual UTR instructions
+  const box = document.getElementById("auto-verify-box");
+  const spinner = document.getElementById("verify-spinner");
+  const statusTitle = document.getElementById("verify-status-title");
+  const statusDesc = document.getElementById("verify-status-desc");
+
+  if (box) box.className = "p-3 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center gap-3";
+  if (spinner) spinner.classList.add("hidden");
+  if (statusTitle) {
+    statusTitle.textContent = `Pay ${CONFIG.currency}${currentOrderAmount} & Enter Transaction ID`;
+    statusTitle.className = "text-xs font-bold text-violet-300";
+  }
+  if (statusDesc) {
+    statusDesc.textContent = "QR scan karein ya UPI ID copy karke payment karein, phir niche 12-digit UTR/Transaction ID daal kar submit karein.";
   }
 
   const utrInput = document.getElementById("payment-utr");
   if (utrInput) utrInput.value = "";
-  resetVerifyBoxUI();
   validateUtrInput();
 
   document.getElementById("cart-step-1")?.classList.add("hidden");
   document.getElementById("cart-step-2")?.classList.remove("hidden");
-
-  startPaymentVerificationPolling();
 }
 
 function downloadPaymentQr(upiUrl) {
@@ -665,19 +607,13 @@ function downloadPaymentQr(upiUrl) {
   const triggerDownload = (dataUrl) => {
     const a = document.createElement("a");
     a.href = dataUrl;
-    a.download = `Premiumsell-Pay-${currentUniqueAmount}.png`;
+    a.download = `Premiumsell-Pay-${currentOrderAmount}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-
-    const desc = document.getElementById("verify-status-desc");
-    if (desc && !isPaymentVerified) {
-      desc.textContent = "QR Gallery mein save ho gaya! GPay/PhonePe mein 'Upload from Gallery' se pay karein.";
-    }
   };
 
   if (existingCanvas) {
-    // Add white margin around QR so gallery scanner reads it reliably
     const padded = document.createElement("canvas");
     const pad = 24;
     padded.width = existingCanvas.width + pad * 2;
@@ -695,7 +631,6 @@ function downloadPaymentQr(upiUrl) {
     return;
   }
 
-  // Fallback external QR download
   const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(upiUrl)}`;
   fetch(qrApiUrl)
     .then((r) => r.blob())
@@ -709,96 +644,6 @@ function downloadPaymentQr(upiUrl) {
     });
 }
 
-function resetVerifyBoxUI() {
-  const box = document.getElementById("auto-verify-box");
-  const spinner = document.getElementById("verify-spinner");
-  const title = document.getElementById("verify-status-title");
-  const desc = document.getElementById("verify-status-desc");
-
-  if (box) box.className = "p-3 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center gap-3";
-  if (spinner) spinner.classList.remove("hidden");
-  if (title) {
-    title.textContent = "Waiting for Payment Confirmation...";
-    title.className = "text-xs font-bold text-violet-300";
-  }
-  if (desc) {
-    desc.innerHTML = `Pay karte hi 5–10 sec mein verify hoga. <button type="button" onclick="checkPaymentStatus(true)" class="underline font-bold text-violet-300 hover:text-white ml-1">Check Now</button>`;
-  }
-}
-
-function startPaymentVerificationPolling() {
-  stopPaymentVerificationPolling();
-  verifyPollInterval = setInterval(() => checkPaymentStatus(false), 3000);
-}
-
-function stopPaymentVerificationPolling() {
-  if (verifyPollInterval) {
-    clearInterval(verifyPollInterval);
-    verifyPollInterval = null;
-  }
-}
-
-async function checkPaymentStatus(isManual = false) {
-  if (!currentUniqueAmount || isPaymentVerified) return;
-
-  const title = document.getElementById("verify-status-title");
-  if (isManual && title && !isPaymentVerified) {
-    title.textContent = "Checking Payment Status...";
-  }
-
-  try {
-    const res = await fetch(
-      `${CONFIG.scriptUrl}?amount=${encodeURIComponent(currentUniqueAmount)}&t=${Date.now()}`,
-      { cache: "no-store" }
-    );
-    const rawText = await res.text();
-    let data = null;
-    try {
-      data = JSON.parse(rawText);
-    } catch (_) {}
-
-    const verified =
-      (data && (data.verified === true || data.status === "verified" || data.paid === true || data.found === true)) ||
-      rawText.toLowerCase().includes('"verified":true') ||
-      rawText.trim() === "true";
-
-    if (verified) {
-      isPaymentVerified = true;
-      localStorage.removeItem(PENDING_PAYMENT_KEY);
-      stopPaymentVerificationPolling();
-      onPaymentAutoVerified();
-    } else if (isManual && title && !isPaymentVerified) {
-      title.textContent = "Waiting for Payment Confirmation...";
-    }
-  } catch (err) {
-    if (isManual && title && !isPaymentVerified) {
-      title.textContent = "Waiting for Payment Confirmation...";
-    }
-  }
-}
-
-function onPaymentAutoVerified() {
-  const box = document.getElementById("auto-verify-box");
-  const spinner = document.getElementById("verify-spinner");
-  const title = document.getElementById("verify-status-title");
-  const desc = document.getElementById("verify-status-desc");
-  const btn = document.getElementById("confirm-paid-btn");
-
-  if (box) box.className = "p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center gap-3";
-  if (spinner) spinner.classList.add("hidden");
-  if (title) {
-    title.textContent = "✅ Payment Verified Automatically!";
-    title.className = "text-xs font-extrabold text-emerald-400";
-  }
-  if (desc) desc.textContent = `₹${currentUniqueAmount} received on Google Pay. Click below to send order!`;
-
-  if (btn) {
-    btn.disabled = false;
-    btn.className = "w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white cursor-pointer font-bold py-3.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2";
-    btn.innerHTML = `<span>Send Verified Order on WhatsApp →</span>`;
-  }
-}
-
 function isValidUtr(utr) {
   if (!/^\d{12}$/.test(utr)) return false;
   if (/^(\d)\1{11}$/.test(utr)) return false;
@@ -807,8 +652,6 @@ function isValidUtr(utr) {
 }
 
 function validateUtrInput() {
-  if (isPaymentVerified) return;
-
   const utrInput = document.getElementById("payment-utr");
   const btn = document.getElementById("confirm-paid-btn");
   if (!utrInput || !btn) return;
@@ -819,18 +662,15 @@ function validateUtrInput() {
   if (isValidUtr(utr)) {
     btn.disabled = false;
     btn.className = "w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white cursor-pointer font-bold py-3.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2";
-    btn.innerHTML = `<span>I Have Paid • Send Order on WhatsApp</span>`;
+    btn.innerHTML = `<span>Submit Order on WhatsApp →</span>`;
   } else {
     btn.disabled = true;
     btn.className = "w-full bg-slate-700 text-slate-400 cursor-not-allowed font-bold py-3.5 rounded-xl text-sm transition flex items-center justify-center gap-2";
-    btn.innerHTML = `<span>Complete Payment or Enter 12-Digit UTR</span>`;
+    btn.innerHTML = `<span>Enter 12-Digit Transaction ID (UTR)</span>`;
   }
 }
 
 function backToCartStep1() {
-  stopPaymentVerificationPolling();
-  localStorage.removeItem(PENDING_PAYMENT_KEY);
-  currentUniqueAmount = null;
   const titleEl = document.getElementById("cart-drawer-title");
   if (titleEl) titleEl.textContent = "Your Cart";
   document.getElementById("cart-step-2")?.classList.add("hidden");
@@ -852,27 +692,22 @@ function confirmPaidWhatsApp() {
   const phone = document.getElementById("cust-phone")?.value.trim();
   const utr = document.getElementById("payment-utr")?.value.trim();
 
-  if (!isPaymentVerified && !isValidUtr(utr)) {
-    alert("Please complete the UPI payment or enter a valid 12-digit UTR Number.");
+  if (!isValidUtr(utr)) {
+    alert("Please enter a valid 12-digit UPI Transaction ID (UTR).");
     return;
   }
-
-  localStorage.removeItem(PENDING_PAYMENT_KEY);
 
   const itemsText = cart
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
     .join("\n");
 
-  let message = `*PAID ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
+  let message = `*NEW PAID ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
   message += `*Customer:* ${name}\n`;
   message += `*WhatsApp:* ${phone}\n`;
   message += `\n*Order Details:*\n${itemsText}\n\n`;
-  message += `*Unique Amount Paid:* ${CONFIG.currency}${currentUniqueAmount}\n`;
-  message += `*Verification:* ${isPaymentVerified ? "✅ Auto-Verified via GPay" : "UTR Submitted"}\n`;
-  if (utr) {
-    message += `*UTR / Ref No.:* ${utr}\n`;
-  }
-  message += `\nPlease activate my subscription!`;
+  message += `*Amount Paid:* ${CONFIG.currency}${currentOrderAmount}\n`;
+  message += `*Transaction ID (UTR):* ${utr}\n\n`;
+  message += `Please verify my UTR and activate my subscription!`;
 
   const waUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
   window.open(waUrl, "_blank");
@@ -901,13 +736,10 @@ function toggleCart(open) {
   if (!overlay || !drawer) return;
 
   if (open) {
-    if (!currentUniqueAmount) {
-      backToCartStep1();
-    }
+    backToCartStep1();
     overlay.classList.remove("hidden");
     drawer.classList.remove("translate-x-full");
   } else {
-    stopPaymentVerificationPolling();
     overlay.classList.add("hidden");
     drawer.classList.add("translate-x-full");
   }
