@@ -18,9 +18,7 @@
 </head>
 <body class="bg-[#0B0F19] text-slate-100 font-sans antialiased pb-24">
 
-  <!-- ==========================================
-       TOP STICKY HEADER
-  =========================================== -->
+  <!-- TOP STICKY HEADER -->
   <header class="sticky top-0 z-30 bg-[#0B0F19]/90 backdrop-blur-md border-b border-slate-800 w-full">
     <div class="w-full px-4 sm:px-8 h-14 sm:h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -78,13 +76,10 @@
     </div>
   </header>
 
-  <!-- ==========================================
-       HERO BANNER CAROUSEL
-  =========================================== -->
+  <!-- HERO BANNER CAROUSEL -->
   <section class="relative w-full overflow-hidden bg-[#0F1626] border-b border-slate-800">
     <div id="hero-slides" class="flex transition-transform duration-500 ease-out">
       
-      <!-- Banner 1 -->
       <div class="w-full flex-shrink-0 relative h-[400px] sm:h-[470px] md:h-[520px] flex flex-col items-center justify-center text-center px-4 sm:px-6 overflow-hidden bg-[#0B0F19]">
         <img src="Banner1.jpeg" alt="Background" class="absolute inset-0 w-full h-full object-cover opacity-95" />
         <div class="absolute inset-0 bg-gradient-to-t from-[#0B0F19] via-black/45 to-black/30"></div>
@@ -110,14 +105,12 @@
         </div>
       </div>
 
-      <!-- Banner 2 -->
       <div class="w-full flex-shrink-0 h-[400px] sm:h-[470px] md:h-[520px] bg-[#0F1626] flex items-center justify-center">
         <a href="#catalog-section" class="w-full h-full block">
           <img src="Banner2.jpg" alt="Offer Banner 2" class="w-full h-full object-contain mx-auto" />
         </a>
       </div>
 
-      <!-- Banner 3 -->
       <div class="w-full flex-shrink-0 h-[400px] sm:h-[470px] md:h-[520px] bg-[#0F1626] flex items-center justify-center">
         <a href="#catalog-section" class="w-full h-full block">
           <img src="Banner3.jpg" alt="Offer Banner 3" class="w-full h-full object-contain mx-auto" />
@@ -136,9 +129,7 @@
     <div id="hero-dots" class="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5"></div>
   </section>
 
-  <!-- ==========================================
-       CATEGORIES & FULL-WIDTH PRODUCT GRID
-  =========================================== -->
+  <!-- CATEGORIES & PRODUCT GRID -->
   <main id="catalog-section" class="w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8">
     <div class="text-center mb-6">
       <h2 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Categories</h2>
@@ -155,9 +146,7 @@
     <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
   </main>
 
-  <!-- ==========================================
-       FULL-WIDTH FOOTER
-  =========================================== -->
+  <!-- FULL-WIDTH FOOTER -->
   <footer class="w-full bg-[#0F1626] border-t border-slate-800 mt-16 py-8 px-4 sm:px-8 text-slate-300">
     <div class="max-w-7xl mx-auto">
       <div class="flex items-center gap-3 mb-4">
@@ -179,9 +168,7 @@
     </div>
   </footer>
 
-  <!-- ==========================================
-       FLOATING BOTTOM "ALL CATEGORIES" PILL
-  =========================================== -->
+  <!-- FLOATING BOTTOM "ALL CATEGORIES" PILL -->
   <button 
     onclick="toggleCategoryModal(true)"
     class="fixed bottom-5 left-1/2 -translate-x-1/2 z-20 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-semibold px-5 py-2.5 rounded-full shadow-lg shadow-violet-600/30 border border-white/15 flex items-center gap-2 transition"
@@ -195,9 +182,7 @@
     <span>All Categories</span>
   </button>
 
-  <!-- ==========================================
-       CATEGORY SELECTOR POPUP MODAL
-  =========================================== -->
+  <!-- CATEGORY SELECTOR POPUP MODAL -->
   <div id="category-modal" class="fixed inset-0 z-50 hidden">
     <div onclick="toggleCategoryModal(false)" class="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
     <div class="absolute bottom-0 left-0 right-0 sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-md w-full bg-[#131A2A] border border-slate-800 rounded-t-2xl sm:rounded-2xl p-5 shadow-2xl">
@@ -209,9 +194,7 @@
     </div>
   </div>
 
-  <!-- ==========================================
-       FULL-SCREEN PRODUCT DETAIL MODAL
-  =========================================== -->
+  <!-- FULL-SCREEN PRODUCT DETAIL MODAL -->
   <div id="product-modal" class="fixed inset-0 z-50 bg-[#0B0F19] text-slate-100 overflow-y-auto hidden">
     <div class="sticky top-0 z-20 bg-[#0B0F19]/95 backdrop-blur-md border-b border-slate-800 w-full">
       <div class="max-w-7xl mx-auto px-4 sm:px-8 h-14 sm:h-16 flex items-center justify-between">
@@ -228,12 +211,10 @@
       </div>
     </div>
 
-    <!-- Full-Width Container (2-Column on Laptop, Stacked on Mobile) -->
     <div id="product-modal-content" class="max-w-7xl mx-auto px-4 sm:px-8 pt-6 pb-28"></div>
 
-    <!-- Sticky Bottom Dual Action Bar -->
     <div class="fixed bottom-0 left-0 right-0 z-30 bg-[#131A2A]/95 backdrop-blur-md border-t border-slate-800 p-3">
-      <div class="max-w-7xl mx-auto px-4 sm:px-8 grid grid-cols-2 gap-3 sm:max-w-xl">
+      <div class="max-w-xl mx-auto grid grid-cols-2 gap-3">
         <button 
           id="modal-add-btn"
           class="w-full py-3 rounded-lg border border-slate-700 bg-[#1E293B] text-white font-semibold text-sm hover:bg-slate-700 transition"
@@ -242,7 +223,7 @@
         </button>
         <button 
           id="modal-buy-btn"
-          class="w-full py-3 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold text-sm transition shadow-lg shadow-violet-600/25"
+          class="w-full py-3 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm transition shadow-lg shadow-violet-600/30"
         >
           Buy Now
         </button>
@@ -250,9 +231,7 @@
     </div>
   </div>
 
-  <!-- ==========================================
-       SLIDE-OUT HAMBURGER MENU DRAWER
-  =========================================== -->
+  <!-- SLIDE-OUT HAMBURGER MENU DRAWER -->
   <div id="menu-overlay" onclick="toggleMenu(false)" class="fixed inset-0 bg-black/75 z-40 hidden"></div>
   <aside id="menu-drawer" class="fixed top-0 left-0 h-full w-72 bg-[#131A2A] border-r border-slate-800 z-50 shadow-2xl transform -translate-x-full transition-transform duration-300 flex flex-col">
     <div class="px-5 h-14 border-b border-slate-800 flex items-center justify-between">
@@ -271,9 +250,7 @@
     </div>
   </aside>
 
-  <!-- ==========================================
-       SLIDE-OVER SHOPPING CART DRAWER
-  =========================================== -->
+  <!-- SLIDE-OVER SHOPPING CART DRAWER -->
   <div id="cart-overlay" onclick="toggleCart(false)" class="fixed inset-0 bg-black/75 z-40 hidden"></div>
   <aside id="cart-drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-[#131A2A] border-l border-slate-800 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
     <div class="px-5 h-14 border-b border-slate-800 flex items-center justify-between">
@@ -304,6 +281,6 @@
     </div>
   </aside>
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
