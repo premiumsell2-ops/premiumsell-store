@@ -3,7 +3,7 @@
 // ==========================================
 const CONFIG = {
   storeName: "Premiumsell",
-  whatsappNumber: "91XXXXXXXXXX", // <-- Yahan apna WhatsApp number dalein (e.g. 919876543210)
+  whatsappNumber: "916284854882", // <-- Yahan apna WhatsApp number dalein (e.g. 919876543210)
   currency: "₹"
 };
 
