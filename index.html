@@ -66,6 +66,38 @@
     #cart-items .text-\[\#5B21B6\] {
       color: #A78BFA !important;
     }
+
+    /* Fix 1: Product Modal Image Pura Dikhe (No Cutting) */
+    #product-modal-content div:has(> img) {
+      height: auto !important;
+      max-height: none !important;
+      aspect-ratio: auto !important;
+      background-color: #131A2A !important;
+      padding: 12px !important;
+    }
+    #product-modal-content img {
+      width: 100% !important;
+      height: auto !important;
+      max-height: 440px !important;
+      object-fit: contain !important;
+      border-radius: 12px !important;
+      margin: 0 auto !important;
+    }
+
+    /* Fix 2: Selected Variant Plan Button High Contrast (Purple + White Text) */
+    #product-modal-content button[class*="bg-white"],
+    #product-modal-content button[class*="bg-gray-"],
+    #product-modal-content button[class*="bg-purple-"],
+    #product-modal-content button[class*="bg-indigo-"],
+    #product-modal-content button[class*="border-\[\#5B21B6\]"],
+    #product-modal-content button[class*="border-purple-"],
+    #product-modal-content button[class*="border-black"] {
+      background-color: #7C3AED !important;
+      border-color: #A78BFA !important;
+      color: #FFFFFF !important;
+      font-weight: 700 !important;
+      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35) !important;
+    }
   </style>
 </head>
 <body class="bg-[#0B0F19] text-slate-100 font-sans antialiased pb-24">
@@ -142,12 +174,9 @@
       
       <!-- Banner 1 (Sharp Full-Colour Image + Dark Frosted Glass Overlay) -->
       <div class="w-full flex-shrink-0 relative h-[400px] sm:h-[470px] md:h-[520px] flex flex-col items-center justify-center text-center px-4 sm:px-6 overflow-hidden bg-[#0B0F19]">
-        <!-- Full Vibrant Background Image (No White Washout) -->
         <img src="Banner1.jpeg" alt="Background" class="absolute inset-0 w-full h-full object-cover opacity-95" />
-        <!-- Subtle Dark Cinematic Vignette -->
         <div class="absolute inset-0 bg-gradient-to-t from-[#0B0F19] via-black/45 to-black/30"></div>
         
-        <!-- Frosted Dark Glass Card -->
         <div class="relative z-10 flex flex-col items-center max-w-lg bg-black/50 backdrop-blur-md border border-white/15 rounded-2xl px-6 py-6 sm:px-8 sm:py-7 shadow-2xl">
           <img 
             src="logo.png" 
