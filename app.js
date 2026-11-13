@@ -1,365 +1,463 @@
 // ==========================================
-// 1. STORE CONFIGURATION
+// PREMIUMSELL STORE CONFIGURATION
 // ==========================================
 const CONFIG = {
   storeName: "Premiumsell",
-  whatsappNumber: "916284854882", // Apna 10-digit number '91' ke saath dalein
+  whatsappNumber: "916284854882", // <-- Yahan apna WhatsApp number dalein (e.g. 919876543210)
   currency: "₹"
 };
 
-let allProducts = [];
-let selectedCategory = "All";
-let cart = JSON.parse(localStorage.getItem("premiumsell_cart")) || [];
+// ==========================================
+// STATE VARIABLES
+// ==========================================
+let products = [];
+let cart = JSON.parse(localStorage.getItem("premiumsell_cart") || "[]");
+let activeCategory = "All";
+let searchQuery = "";
 let currentSlide = 0;
-let activeModalProduct = null;
-let activeVariantIndex = 0;
+let slideInterval = null;
+
+let selectedProduct = null;
+let selectedVariantIndex = 0;
+let showAllVariants = false;
 
 // ==========================================
-// 2. INITIALIZATION
+// INITIALIZE STORE ON PAGE LOAD
 // ==========================================
-document.addEventListener("DOMContentLoaded", async () => {
-  const waDirect = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent("Hi Premiumsell, I want to enquire about a subscription.")}`;
-  document.getElementById("header-wa-link").href = waDirect;
-  document.getElementById("drawer-wa-link").href = waDirect;
-
-  try {
-    const res = await fetch("products.json");
-    if (!res.ok) throw new Error("Failed to fetch products.json");
-    allProducts = await res.json();
-  } catch (err) {
-    console.error("Run using Live Server or Cloudflare Pages to load products.json:", err);
-  }
-
-  initCarousel();
-  renderCategoryLists();
-  renderProducts();
+document.addEventListener("DOMContentLoaded", () => {
+  setupWhatsAppLinks();
+  initHeroCarousel();
   updateCartUI();
+  loadProducts();
 
-  document.getElementById("search-input").addEventListener("input", renderProducts);
+  const searchInput = document.getElementById("search-input");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      renderProducts();
+    });
+  }
 });
 
+function setupWhatsAppLinks() {
+  const defaultMsg = encodeURIComponent(`Hi ${CONFIG.storeName}, I need help with a subscription.`);
+  const waUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${defaultMsg}`;
+
+  const headerWa = document.getElementById("header-wa-link");
+  const drawerWa = document.getElementById("drawer-wa-link");
+  if (headerWa) headerWa.href = waUrl;
+  if (drawerWa) drawerWa.href = waUrl;
+}
+
 // ==========================================
-// 3. HERO CAROUSEL LOGIC
+// LOAD PRODUCTS FROM products.json
 // ==========================================
-function initCarousel() {
-  const slides = document.getElementById("hero-slides");
-  const total = slides.children.length;
+async function loadProducts() {
+  try {
+    const res = await fetch(`products.json?v=${Date.now()}`);
+    products = await res.json();
+    populateCategories();
+    renderProducts();
+  } catch (err) {
+    console.error("Error loading products:", err);
+    const grid = document.getElementById("product-grid");
+    if (grid) {
+      grid.innerHTML = `<p class="col-span-full text-center text-sm text-slate-400 py-10">Unable to load products. Please check products.json formatting.</p>`;
+    }
+  }
+}
+
+// ==========================================
+// HERO BANNER CAROUSEL
+// ==========================================
+function initHeroCarousel() {
+  const slidesContainer = document.getElementById("hero-slides");
   const dotsContainer = document.getElementById("hero-dots");
+  if (!slidesContainer || !dotsContainer) return;
 
-  dotsContainer.innerHTML = Array.from({ length: total }).map((_, i) => `
-    <button onclick="goToSlide(${i})" class="w-2 h-2 rounded-full transition ${i === 0 ? "bg-white w-4" : "bg-white/50"}"></button>
-  `).join("");
+  const totalSlides = slidesContainer.children.length;
+  dotsContainer.innerHTML = "";
 
-  setInterval(() => {
-    nextSlide();
-  }, 4500);
+  for (let i = 0; i < totalSlides; i++) {
+    const dot = document.createElement("button");
+    dot.setAttribute("aria-label", `Slide ${i + 1}`);
+    dot.className = `h-2 rounded-full transition-all ${i === 0 ? "w-6 bg-violet-500" : "w-2 bg-white/40"}`;
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+
+  startSlideTimer();
 }
 
 function goToSlide(index) {
-  const slides = document.getElementById("hero-slides");
-  const total = slides.children.length;
-  currentSlide = (index + total) % total;
-  slides.style.transform = `translateX(-${currentSlide * 100}%)`;
+  const slidesContainer = document.getElementById("hero-slides");
+  const dotsContainer = document.getElementById("hero-dots");
+  if (!slidesContainer) return;
 
-  const dots = document.getElementById("hero-dots").children;
-  Array.from(dots).forEach((dot, i) => {
-    dot.className = `h-2 rounded-full transition-all ${i === currentSlide ? "bg-white w-5" : "bg-white/60 w-2"}`;
-  });
+  const totalSlides = slidesContainer.children.length;
+  currentSlide = (index + totalSlides) % totalSlides;
+  slidesContainer.style.transform = `translateX(-${currentSlide * 100}%)`;
+
+  if (dotsContainer) {
+    Array.from(dotsContainer.children).forEach((dot, idx) => {
+      dot.className = `h-2 rounded-full transition-all ${idx === currentSlide ? "w-6 bg-violet-500" : "w-2 bg-white/40"}`;
+    });
+  }
+  startSlideTimer();
 }
 
-function nextSlide() { goToSlide(currentSlide + 1); }
-function prevSlide() { goToSlide(currentSlide - 1); }
-
-// ==========================================
-// 4. CATEGORIES & 2-COLUMN PRODUCT GRID
-// ==========================================
-function getCategories() {
-  return ["All", ...new Set(allProducts.map(p => p.category))];
+function nextSlide() {
+  goToSlide(currentSlide + 1);
 }
 
-function renderCategoryLists() {
-  const categories = getCategories();
+function prevSlide() {
+  goToSlide(currentSlide - 1);
+}
 
-  // Floating "All Categories" Modal List
-  document.getElementById("category-modal-list").innerHTML = categories.map(cat => {
-    const count = cat === "All" ? allProducts.length : allProducts.filter(p => p.category === cat).length;
-    const isActive = selectedCategory === cat;
-    return `
-      <button 
-        onclick="selectCategory('${cat}'); toggleCategoryModal(false);"
-        class="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition ${
-          isActive ? "bg-purple-50 text-[#5B21B6] font-bold" : "text-gray-700 hover:bg-gray-50"
-        }"
-      >
-        <span>${cat === "All" ? "All Subscriptions" : cat}</span>
-        <span class="text-xs bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full">${count}</span>
-      </button>
-    `;
-  }).join("");
+function startSlideTimer() {
+  if (slideInterval) clearInterval(slideInterval);
+  slideInterval = setInterval(() => {
+    goToSlide(currentSlide + 1);
+  }, 4500);
+}
 
-  // Hamburger Drawer Categories
-  document.getElementById("drawer-categories").innerHTML = categories.filter(c => c !== "All").map(cat => `
-    <button onclick="selectCategory('${cat}'); toggleMenu(false);" class="w-full text-left px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50">
-      ${cat}
+// ==========================================
+// CATEGORIES & SEARCH
+// ==========================================
+function populateCategories() {
+  const uniqueCats = [...new Set(products.map((p) => p.category).filter(Boolean))];
+  const modalList = document.getElementById("category-modal-list");
+  const drawerList = document.getElementById("drawer-categories");
+
+  const allItemHtml = (isModal) => `
+    <button onclick="selectCategory('All'); ${isModal ? "toggleCategoryModal(false)" : "toggleMenu(false)"}"
+      class="w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-between transition ${
+        activeCategory === "All" ? "bg-violet-600/20 text-violet-300 border border-violet-500/40" : "hover:bg-slate-800 text-slate-200"
+      }">
+      <span>All Subscriptions</span>
+      <span class="text-xs text-slate-400">${products.length}</span>
     </button>
-  `).join("");
+  `;
+
+  const catItemsHtml = (isModal) =>
+    uniqueCats
+      .map((cat) => {
+        const count = products.filter((p) => p.category === cat).length;
+        const active = activeCategory === cat;
+        return `
+          <button onclick="selectCategory('${cat.replace(/'/g, "\\'")}'); ${isModal ? "toggleCategoryModal(false)" : "toggleMenu(false)"}"
+            class="w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between transition ${
+              active ? "bg-violet-600/20 text-violet-300 border border-violet-500/40" : "hover:bg-slate-800 text-slate-200"
+            }">
+            <span>${cat}</span>
+            <span class="text-xs text-slate-400">${count}</span>
+          </button>
+        `;
+      })
+      .join("");
+
+  if (modalList) modalList.innerHTML = allItemHtml(true) + catItemsHtml(true);
+  if (drawerList) drawerList.innerHTML = catItemsHtml(false);
 }
 
 function selectCategory(cat) {
-  selectedCategory = cat;
-  document.getElementById("active-category-title").textContent = cat === "All" ? "ALL SUBSCRIPTIONS" : cat.toUpperCase();
-  renderCategoryLists();
+  activeCategory = cat;
+  const titleEl = document.getElementById("active-category-title");
+  if (titleEl) {
+    titleEl.textContent = cat === "All" ? "ALL SUBSCRIPTIONS" : cat.toUpperCase();
+  }
+  populateCategories();
   renderProducts();
 }
 
-function calcDiscount(mrp, price) {
-  if (!mrp || mrp <= price) return 0;
-  return Math.round(((mrp - price) / mrp) * 100);
+function resetHome(e) {
+  if (e) e.preventDefault();
+  activeCategory = "All";
+  searchQuery = "";
+  const searchInput = document.getElementById("search-input");
+  if (searchInput) searchInput.value = "";
+  selectCategory("All");
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function renderProducts() {
-  const query = document.getElementById("search-input").value.toLowerCase().trim();
-  const grid = document.getElementById("product-grid");
+function toggleSearchBar() {
+  const box = document.getElementById("search-bar-box");
+  const input = document.getElementById("search-input");
+  if (!box) return;
+  box.classList.toggle("hidden");
+  if (!box.classList.contains("hidden") && input) {
+    input.focus();
+  }
+}
 
-  const filtered = allProducts.filter(p => {
-    const matchCat = selectedCategory === "All" || p.category === selectedCategory;
-    const matchQuery = p.name.toLowerCase().includes(query) || p.category.toLowerCase().includes(query);
-    return matchCat && matchQuery;
+function clearSearch() {
+  searchQuery = "";
+  const input = document.getElementById("search-input");
+  if (input) input.value = "";
+  renderProducts();
+}
+
+// ==========================================
+// RENDER PRODUCT GRID
+// ==========================================
+function renderProducts() {
+  const grid = document.getElementById("product-grid");
+  const countLabel = document.getElementById("product-count-label");
+  if (!grid) return;
+
+  const filtered = products.filter((p) => {
+    const matchesCat = activeCategory === "All" || p.category === activeCategory;
+    const matchesSearch =
+      !searchQuery ||
+      p.name.toLowerCase().includes(searchQuery) ||
+      (p.category && p.category.toLowerCase().includes(searchQuery));
+    return matchesCat && matchesSearch;
   });
 
-  document.getElementById("product-count-label").textContent = `${filtered.length} items`;
+  if (countLabel) {
+    countLabel.textContent = `${filtered.length} ${filtered.length === 1 ? "item" : "items"}`;
+  }
 
   if (filtered.length === 0) {
-    grid.innerHTML = `<p class="col-span-full text-center text-gray-500 py-12 text-sm">Koi subscription nahi mili.</p>`;
+    grid.innerHTML = `<p class="col-span-full text-center text-sm text-slate-400 py-12">No subscriptions found.</p>`;
     return;
   }
 
-  grid.innerHTML = filtered.map(product => {
-    const discount = calcDiscount(product.mrp, product.price);
-    const hasVariants = product.variants && product.variants.length > 1;
+  grid.innerHTML = filtered
+    .map((product) => {
+      const baseVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
+      const displayPrice = baseVariant ? baseVariant.price : product.price;
+      const displayMrp = baseVariant ? baseVariant.mrp : product.mrp;
+      const discount = displayMrp > displayPrice ? Math.round(((displayMrp - displayPrice) / displayMrp) * 100) : 0;
+      const outOfStock = product.inStock === false;
 
-    return `
-      <div class="flex flex-col bg-white">
-        <!-- Square Product Image + Bottom-Left Green % OFF Badge -->
-        <div onclick="openProductModal('${product.id}')" class="relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 cursor-pointer group">
-          <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
-          ${discount > 0 ? `
-            <span class="absolute bottom-2 left-2 bg-[#16A34A] text-white text-[11px] font-extrabold px-2 py-0.5 rounded shadow-sm">
-              ${discount}% OFF
-            </span>
-          ` : ""}
-        </div>
+      return `
+        <div onclick="openProductModal('${product.id}')" class="group bg-[#131A2A] border border-slate-800 hover:border-violet-500/60 rounded-xl overflow-hidden flex flex-col cursor-pointer transition shadow-md">
+          <div class="relative aspect-square bg-[#0F1626] overflow-hidden">
+            <img src="${product.image}" alt="${product.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300 ${outOfStock ? "opacity-40" : ""}" />
+            ${
+              discount > 0
+                ? `<span class="absolute top-2 left-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">${discount}% OFF</span>`
+                : ""
+            }
+            ${
+              outOfStock
+                ? `<span class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-xs font-bold uppercase tracking-wider">Out of Stock</span>`
+                : ""
+            }
+          </div>
 
-        <!-- Title & Pricing -->
-        <div onclick="openProductModal('${product.id}')" class="mt-2.5 cursor-pointer">
-          <h4 class="text-[13px] sm:text-sm font-medium text-gray-900 line-clamp-2 leading-snug min-h-[2.4rem]">
-            ${product.name}
-          </h4>
-          <div class="flex items-baseline gap-1.5 mt-1">
-            <span class="text-sm sm:text-base font-extrabold text-gray-900">${CONFIG.currency}${product.price}</span>
-            ${product.mrp > product.price ? `
-              <span class="text-xs text-gray-400 line-through">${CONFIG.currency}${product.mrp}</span>
-            ` : ""}
+          <div class="p-3 flex-1 flex flex-col justify-between">
+            <div>
+              <h4 class="text-xs sm:text-sm font-bold text-slate-100 line-clamp-2 leading-snug">${product.name}</h4>
+              <div class="mt-2 flex items-baseline gap-1.5 flex-wrap">
+                <span class="text-sm sm:text-base font-extrabold text-white">${CONFIG.currency}${displayPrice}</span>
+                ${
+                  displayMrp > displayPrice
+                    ? `<span class="text-xs text-slate-400 line-through">${CONFIG.currency}${displayMrp}</span>`
+                    : ""
+                }
+              </div>
+            </div>
+
+            <button
+              onclick="event.stopPropagation(); openProductModal('${product.id}')"
+              ${outOfStock ? "disabled" : ""}
+              class="mt-3 w-full py-2 rounded-lg text-xs font-bold transition ${
+                outOfStock
+                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  : "bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/40"
+              }"
+            >
+              ${outOfStock ? "Sold Out" : product.variants && product.variants.length > 1 ? "Select Plan" : "View Plan"}
+            </button>
           </div>
         </div>
-
-        <!-- Outlined ADD Button (Exact Video Style) -->
-        <button 
-          onclick="${hasVariants ? `openProductModal('${product.id}')` : `quickAddToCart('${product.id}')`}"
-          class="mt-2.5 w-full py-2 border border-gray-300 hover:border-[#5B21B6] hover:text-[#5B21B6] rounded-lg text-xs font-bold tracking-wide text-gray-800 transition"
-        >
-          ADD
-        </button>
-
-        <!-- Variant Count Indicator ("4 options") -->
-        ${hasVariants ? `
-          <button onclick="openProductModal('${product.id}')" class="mt-1.5 flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-800">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            <span>${product.variants.length} options</span>
-          </button>
-        ` : ""}
-
-        <!-- Short Rule Snippet -->
-        ${product.shortRule ? `
-          <p class="mt-1.5 text-[11px] text-gray-500 line-clamp-2 leading-tight">
-            ${product.shortRule}
-          </p>
-        ` : ""}
-      </div>
-    `;
-  }).join("");
+      `;
+    })
+    .join("");
 }
 
 // ==========================================
-// 5. PRODUCT DETAIL MODAL (Matches 00:10-00:15)
+// PRODUCT DETAIL MODAL (Vertical Plans + View More)
 // ==========================================
-function openProductModal(productId, variantIdx = 0) {
-  const product = allProducts.find(p => p.id === productId);
+function openProductModal(productId) {
+  const product = products.find((p) => p.id === productId);
   if (!product) return;
 
-  activeModalProduct = product;
-  activeVariantIndex = variantIdx;
+  selectedProduct = product;
+  selectedVariantIndex = 0;
+  showAllVariants = false;
 
-  renderProductModal();
-  document.getElementById("product-modal").classList.remove("hidden");
-  document.getElementById("product-modal").scrollTop = 0;
+  renderProductModalContent();
+
+  const modal = document.getElementById("product-modal");
+  if (modal) {
+    modal.classList.remove("hidden");
+    modal.scrollTop = 0;
+    document.body.style.overflow = "hidden";
+  }
 }
 
 function closeProductModal() {
-  document.getElementById("product-modal").classList.add("hidden");
+  const modal = document.getElementById("product-modal");
+  if (modal) modal.classList.add("hidden");
+  document.body.style.overflow = "";
 }
 
-function selectVariant(idx) {
-  activeVariantIndex = idx;
-  renderProductModal();
+function selectVariant(index) {
+  selectedVariantIndex = index;
+  renderProductModalContent();
 }
 
-function renderProductModal() {
-  const p = activeModalProduct;
-  const variants = p.variants && p.variants.length > 0
-    ? p.variants
-    : [{ label: "STANDARD PLAN", mrp: p.mrp, price: p.price, razorpayLink: p.razorpayLink || "" }];
+function toggleVariantsExpand() {
+  showAllVariants = !showAllVariants;
+  renderProductModalContent();
+}
 
-  const currentVar = variants[activeVariantIndex] || variants[0];
-  const discount = calcDiscount(currentVar.mrp, currentVar.price);
+function renderProductModalContent() {
+  const container = document.getElementById("product-modal-content");
+  if (!container || !selectedProduct) return;
 
-  // Related products in same category
-  const related = allProducts.filter(item => item.category === p.category && item.id !== p.id).slice(0, 4);
+  const variants = selectedProduct.variants || [];
+  const hasVariants = variants.length > 0;
+  const activeVariant = hasVariants ? variants[selectedVariantIndex] : null;
 
-  document.getElementById("product-modal-content").innerHTML = `
-    <!-- Hero Image -->
-    <div class="w-full aspect-square max-h-[380px] bg-gray-100 overflow-hidden">
-      <img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover" />
+  const price = activeVariant ? activeVariant.price : selectedProduct.price;
+  const mrp = activeVariant ? activeVariant.mrp : selectedProduct.mrp;
+  const discount = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
+  const outOfStock = selectedProduct.inStock === false;
+
+  // Show max 3 plans initially; expand all if "+ View more" clicked
+  const visibleVariants = showAllVariants ? variants : variants.slice(0, 3);
+  const hasMoreThanThree = variants.length > 3;
+
+  const variantsHtml = hasVariants
+    ? `
+      <div class="py-4 border-y border-slate-800">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3">
+          SELECT :: <span class="text-violet-400">${activeVariant.label}</span>
+        </p>
+
+        <!-- Vertical Stacked Plan Buttons -->
+        <div class="flex flex-col gap-2.5">
+          ${visibleVariants
+            .map((v, idx) => {
+              const isSelected = idx === selectedVariantIndex;
+              return `
+                <button
+                  type="button"
+                  onclick="selectVariant(${idx})"
+                  class="w-full text-left px-4 py-3 rounded-lg border text-xs sm:text-sm transition flex items-center justify-between gap-3 ${
+                    isSelected
+                      ? "bg-violet-600/20 border-violet-500 text-white font-bold ring-1 ring-violet-500"
+                      : "bg-[#131A2A] border-slate-700 text-slate-200 font-medium hover:border-violet-500/50"
+                  }"
+                >
+                  <span class="truncate uppercase">${v.label}</span>
+                  <span class="flex-shrink-0 font-bold ${isSelected ? "text-violet-300" : "text-slate-400"}">${CONFIG.currency}${v.price}</span>
+                </button>
+              `;
+            })
+            .join("")}
+        </div>
+
+        ${
+          hasMoreThanThree
+            ? `
+              <button
+                type="button"
+                onclick="toggleVariantsExpand()"
+                class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-400 hover:text-violet-300 transition"
+              >
+                <span>${showAllVariants ? "− View less" : "+ View more"}</span>
+              </button>
+            `
+            : ""
+        }
+      </div>
+    `
+    : "";
+
+  container.innerHTML = `
+    <div class="bg-[#131A2A] p-3">
+      <img src="${selectedProduct.image}" alt="${selectedProduct.name}" class="w-full max-h-[420px] object-contain rounded-xl mx-auto" />
     </div>
 
-    <div class="px-4 pt-4">
-      <!-- Title -->
-      <h1 class="text-lg sm:text-xl font-bold text-gray-900">${p.name}</h1>
+    <div class="px-4 sm:px-6 pt-4 space-y-4">
+      <div>
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-violet-400">${selectedProduct.category || "Subscription"}</span>
+        <h1 class="text-xl sm:text-2xl font-extrabold text-white mt-0.5">${selectedProduct.name}</h1>
 
-      <!-- Price + Strikethrough MRP + Green % OFF Pill -->
-      <div class="flex items-center gap-2.5 mt-2">
-        <span class="text-xl font-extrabold text-gray-900">${CONFIG.currency}${currentVar.price}</span>
-        ${currentVar.mrp > currentVar.price ? `
-          <span class="text-sm text-gray-400 line-through">${CONFIG.currency}${currentVar.mrp}</span>
-        ` : ""}
-        ${discount > 0 ? `
-          <span class="bg-[#16A34A] text-white text-xs font-bold px-2 py-0.5 rounded">${discount}% OFF</span>
-        ` : ""}
-      </div>
-
-      <!-- Variant Pills Selector -->
-      <div class="mt-5 pt-4 border-t border-gray-100">
-        <p class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2.5">
-          SELECT : <span class="text-gray-900">${currentVar.label}</span>
-        </p>
-        <div class="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
-          ${variants.map((v, idx) => `
-            <button 
-              onclick="selectVariant(${idx})"
-              class="flex-shrink-0 px-3.5 py-2 rounded-lg text-xs font-bold border transition ${
-                idx === activeVariantIndex
-                  ? "border-[#5B21B6] text-[#5B21B6] bg-purple-50/60"
-                  : "border-gray-300 text-gray-700 hover:border-gray-400"
-              }"
-            >
-              ${v.label}
-            </button>
-          `).join("")}
+        <div class="mt-2 flex items-center gap-2.5">
+          <span class="text-2xl font-extrabold text-white">${CONFIG.currency}${price}</span>
+          ${mrp > price ? `<span class="text-sm text-slate-400 line-through">${CONFIG.currency}${mrp}</span>` : ""}
+          ${discount > 0 ? `<span class="bg-emerald-600 text-white text-xs font-bold px-2 py-0.5 rounded">${discount}% OFF</span>` : ""}
         </div>
       </div>
 
-      <!-- Product Description -->
-      <div class="mt-6 pt-4 border-t border-gray-100">
-        <h3 class="text-sm font-bold text-gray-900 mb-2">Product Description</h3>
-        <div class="text-xs sm:text-sm text-gray-700 whitespace-pre-line leading-relaxed">
-          ${p.description || p.shortRule || ""}
-        </div>
+      ${variantsHtml}
+
+      ${
+        selectedProduct.shortRule
+          ? `<div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs sm:text-sm leading-relaxed">${selectedProduct.shortRule}</div>`
+          : ""
+      }
+
+      <div>
+        <h3 class="text-sm font-bold text-white mb-2">Product Description</h3>
+        <div class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">${selectedProduct.description || ""}</div>
       </div>
 
-      <!-- More Details Accordion -->
-      ${p.moreDetails ? `
-        <details class="mt-5 pt-4 border-t border-gray-100 group" open>
-          <summary class="text-sm font-bold text-gray-900 cursor-pointer list-none flex items-center justify-between">
-            <span>More Details</span>
-            <span class="text-gray-400 text-xs">▼</span>
-          </summary>
-          <p class="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed">${p.moreDetails}</p>
-        </details>
-      ` : ""}
-
-      <!-- More in Category -->
-      ${related.length > 0 ? `
-        <div class="mt-7 pt-5 border-t border-gray-200">
-          <h3 class="text-base font-bold text-gray-900 mb-3.5">More in category</h3>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            ${related.map(rel => {
-              const relDisc = calcDiscount(rel.mrp, rel.price);
-              return `
-                <div onclick="openProductModal('${rel.id}')" class="cursor-pointer">
-                  <div class="relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-                    <img src="${rel.image}" alt="${rel.name}" class="w-full h-full object-cover" />
-                    ${relDisc > 0 ? `<span class="absolute bottom-1.5 left-1.5 bg-[#16A34A] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">${relDisc}% OFF</span>` : ""}
-                  </div>
-                  <p class="mt-1.5 text-xs font-medium text-gray-900 line-clamp-2">${rel.name}</p>
-                  <div class="flex items-baseline gap-1 mt-0.5">
-                    <span class="text-xs font-extrabold">${CONFIG.currency}${rel.price}</span>
-                    <span class="text-[10px] text-gray-400 line-through">${CONFIG.currency}${rel.mrp}</span>
-                  </div>
-                </div>
-              `;
-            }).join("")}
-          </div>
-        </div>
-      ` : ""}
+      ${
+        selectedProduct.moreDetails
+          ? `<div class="pt-3 border-t border-slate-800 text-xs text-slate-400">${selectedProduct.moreDetails}</div>`
+          : ""
+      }
     </div>
   `;
 
-  // Wire up Sticky Bottom Buttons
-  document.getElementById("modal-add-btn").onclick = () => {
-    addItemToCart(p, currentVar);
-    closeProductModal();
-    toggleCart(true);
-  };
+  // Wire bottom Add to Cart & Buy Now buttons
+  const addBtn = document.getElementById("modal-add-btn");
+  const buyBtn = document.getElementById("modal-buy-btn");
 
-  document.getElementById("modal-buy-btn").onclick = () => {
-    if (currentVar.razorpayLink) {
-      window.open(currentVar.razorpayLink, "_blank");
-    } else {
-      addItemToCart(p, currentVar);
+  if (addBtn && buyBtn) {
+    addBtn.disabled = outOfStock;
+    buyBtn.disabled = outOfStock;
+
+    addBtn.onclick = () => {
+      addToCart(selectedProduct, activeVariant);
       closeProductModal();
       toggleCart(true);
-    }
-  };
+    };
+
+    buyBtn.onclick = () => {
+      addToCart(selectedProduct, activeVariant);
+      closeProductModal();
+      toggleCart(true);
+    };
+  }
 }
 
 // ==========================================
-// 6. SHOPPING CART & WHATSAPP CHECKOUT
+// SHOPPING CART & WHATSAPP CHECKOUT
 // ==========================================
-function quickAddToCart(productId) {
-  const product = allProducts.find(p => p.id === productId);
-  if (!product) return;
-  const variant = product.variants && product.variants[0]
-    ? product.variants[0]
-    : { label: "Standard", price: product.price };
+function addToCart(product, variant) {
+  const variantLabel = variant ? variant.label : "Standard Plan";
+  const price = variant ? variant.price : product.price;
+  const cartKey = `${product.id}__${variantLabel}`;
 
-  addItemToCart(product, variant);
-  toggleCart(true);
-}
-
-function addItemToCart(product, variant) {
-  const cartKey = `${product.id}_${variant.label}`;
-  const existing = cart.find(item => item.key === cartKey);
-
+  const existing = cart.find((item) => item.key === cartKey);
   if (existing) {
     existing.qty += 1;
   } else {
     cart.push({
       key: cartKey,
+      id: product.id,
       name: product.name,
-      plan: variant.label,
-      price: variant.price,
+      variant: variantLabel,
+      price: price,
+      image: product.image,
       qty: 1
     });
   }
@@ -368,13 +466,13 @@ function addItemToCart(product, variant) {
   updateCartUI();
 }
 
-function updateQty(key, delta) {
-  const item = cart.find(i => i.key === key);
-  if (!item) return;
+function updateCartQty(key, delta) {
+  const index = cart.findIndex((item) => item.key === key);
+  if (index === -1) return;
 
-  item.qty += delta;
-  if (item.qty <= 0) {
-    cart = cart.filter(i => i.key !== key);
+  cart[index].qty += delta;
+  if (cart[index].qty <= 0) {
+    cart.splice(index, 1);
   }
 
   saveCart();
@@ -386,110 +484,123 @@ function saveCart() {
 }
 
 function updateCartUI() {
-  const totalItems = cart.reduce((sum, i) => sum + i.qty, 0);
-  const totalPrice = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+  const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
+  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
 
-  document.getElementById("cart-count").textContent = totalItems;
-  document.getElementById("modal-cart-count").textContent = totalItems;
+  const badge1 = document.getElementById("cart-count");
+  const badge2 = document.getElementById("modal-cart-count");
+  if (badge1) badge1.textContent = totalQty;
+  if (badge2) badge2.textContent = totalQty;
 
-  const container = document.getElementById("cart-items");
+  const itemsContainer = document.getElementById("cart-items");
   const footer = document.getElementById("cart-footer");
+  const totalEl = document.getElementById("cart-total");
+
+  if (!itemsContainer) return;
 
   if (cart.length === 0) {
-    container.innerHTML = `<p class="text-center text-gray-500 text-sm py-12">Your cart is empty.</p>`;
-    footer.classList.add("hidden");
+    itemsContainer.innerHTML = `
+      <div class="text-center py-16">
+        <p class="text-slate-400 text-sm">Your cart is empty.</p>
+        <button onclick="toggleCart(false)" class="mt-4 px-5 py-2 rounded-lg bg-violet-600 text-white text-xs font-bold">Browse Plans</button>
+      </div>
+    `;
+    if (footer) footer.classList.add("hidden");
     return;
   }
 
-  footer.classList.remove("hidden");
-  document.getElementById("cart-total").textContent = `${CONFIG.currency}${totalPrice}`;
+  if (footer) footer.classList.remove("hidden");
+  if (totalEl) totalEl.textContent = `${CONFIG.currency}${totalAmount}`;
 
-  container.innerHTML = cart.map(item => `
-    <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-      <div class="pr-2">
-        <h4 class="text-sm font-bold text-gray-900">${item.name}</h4>
-        <p class="text-[11px] font-semibold text-[#5B21B6]">${item.plan}</p>
-        <p class="text-xs text-gray-500 mt-0.5">${CONFIG.currency}${item.price} x ${item.qty}</p>
+  itemsContainer.innerHTML = cart
+    .map(
+      (item) => `
+      <div class="flex gap-3 bg-[#0F1626] border border-slate-800 p-3 rounded-xl">
+        <img src="${item.image}" alt="${item.name}" class="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+        <div class="flex-1 min-w-0">
+          <h4 class="text-xs sm:text-sm font-bold text-white truncate">${item.name}</h4>
+          <p class="text-[11px] text-violet-400 font-medium truncate mt-0.5">${item.variant}</p>
+          <div class="mt-2 flex items-center justify-between">
+            <span class="text-sm font-extrabold text-white">${CONFIG.currency}${item.price * item.qty}</span>
+            <div class="flex items-center gap-2 bg-[#131A2A] border border-slate-700 rounded-lg px-2 py-0.5">
+              <button onclick="updateCartQty('${item.key.replace(/'/g, "\\'")}', -1)" class="text-slate-300 hover:text-white font-bold px-1">−</button>
+              <span class="text-xs font-bold text-white">${item.qty}</span>
+              <button onclick="updateCartQty('${item.key.replace(/'/g, "\\'")}', 1)" class="text-slate-300 hover:text-white font-bold px-1">+</button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button onclick="updateQty('${item.key}', -1)" class="w-7 h-7 rounded bg-gray-100 font-bold text-gray-700">-</button>
-        <span class="text-sm font-bold w-4 text-center">${item.qty}</span>
-        <button onclick="updateQty('${item.key}', 1)" class="w-7 h-7 rounded bg-gray-100 font-bold text-gray-700">+</button>
-      </div>
-    </div>
-  `).join("");
+    `
+    )
+    .join("");
 }
 
 function checkoutWhatsApp() {
-  const name = document.getElementById("cust-name").value.trim();
-  const phone = document.getElementById("cust-phone").value.trim();
-  const activationId = document.getElementById("cust-activation-id").value.trim();
+  const name = document.getElementById("cust-name")?.value.trim();
+  const phone = document.getElementById("cust-phone")?.value.trim();
+  const activationId = document.getElementById("cust-activation-id")?.value.trim();
 
   if (!name || !phone) {
-    alert("Kripya apna Name aur WhatsApp Number bharein.");
+    alert("Please enter your Name and WhatsApp Number.");
     return;
   }
 
-  const lines = cart.map((item, idx) =>
-    `${idx + 1}. *${item.name}* (${item.plan}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`
-  ).join("\n");
+  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const itemsText = cart
+    .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
+    .join("\n");
 
-  const grandTotal = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+  let message = `*NEW ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
+  message += `*Customer:* ${name}\n`;
+  message += `*WhatsApp:* ${phone}\n`;
+  if (activationId) {
+    message += `*Activation ID:* ${activationId}\n`;
+  }
+  message += `\n*Order Details:*\n${itemsText}\n\n`;
+  message += `*Total Payable:* ${CONFIG.currency}${totalAmount}\n`;
+  message += `Please share payment QR / link for fast activation.`;
 
-  const msg =
-`*New Subscription Order - ${CONFIG.storeName}*
-
-${lines}
-
-*Total Amount:* ${CONFIG.currency}${grandTotal}
-
-*Customer Details:*
-Name: ${name}
-WhatsApp: ${phone}${activationId ? `\nActivation ID/Email: ${activationId}` : ""}`;
-
-  const url = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(msg)}`;
-
-  cart = [];
-  saveCart();
-  updateCartUI();
-  toggleCart(false);
-
-  window.open(url, "_blank");
+  const waUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
+  window.open(waUrl, "_blank");
 }
 
 // ==========================================
-// 7. UI TOGGLES (Search, Menu, Cart, Modals)
+// DRAWERS & MODALS TOGGLES
 // ==========================================
-function toggleSearchBar() {
-  const box = document.getElementById("search-bar-box");
-  box.classList.toggle("hidden");
-  if (!box.classList.contains("hidden")) {
-    document.getElementById("search-input").focus();
+function toggleMenu(open) {
+  const overlay = document.getElementById("menu-overlay");
+  const drawer = document.getElementById("menu-drawer");
+  if (!overlay || !drawer) return;
+
+  if (open) {
+    overlay.classList.remove("hidden");
+    drawer.classList.remove("-translate-x-full");
+  } else {
+    overlay.classList.add("hidden");
+    drawer.classList.add("-translate-x-full");
   }
 }
 
-function clearSearch() {
-  document.getElementById("search-input").value = "";
-  renderProducts();
-  toggleSearchBar();
+function toggleCart(open) {
+  const overlay = document.getElementById("cart-overlay");
+  const drawer = document.getElementById("cart-drawer");
+  if (!overlay || !drawer) return;
+
+  if (open) {
+    overlay.classList.remove("hidden");
+    drawer.classList.remove("translate-x-full");
+  } else {
+    overlay.classList.add("hidden");
+    drawer.classList.add("translate-x-full");
+  }
 }
 
 function toggleCategoryModal(open) {
-  document.getElementById("category-modal").classList.toggle("hidden", !open);
-}
-
-function toggleMenu(open) {
-  document.getElementById("menu-drawer").classList.toggle("-translate-x-full", !open);
-  document.getElementById("menu-overlay").classList.toggle("hidden", !open);
-}
-
-function toggleCart(open) {
-  document.getElementById("cart-drawer").classList.toggle("translate-x-full", !open);
-  document.getElementById("cart-overlay").classList.toggle("hidden", !open);
-}
-
-function resetHome(e) {
-  if (e) e.preventDefault();
-  selectCategory("All");
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  const modal = document.getElementById("category-modal");
+  if (!modal) return;
+  if (open) {
+    modal.classList.remove("hidden");
+  } else {
+    modal.classList.add("hidden");
+  }
 }
