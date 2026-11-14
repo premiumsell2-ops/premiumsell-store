@@ -377,7 +377,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & PAYMENT GATEWAY CHECKOUT
+// SHOPPING CART & IE (IN-PAGE EMBEDDED) PAYMENT
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -466,6 +466,13 @@ function updateCartUI() {
     .join("");
 }
 
+function closeInPagePaymentModal() {
+  const modal = document.getElementById("inpage-pay-modal");
+  const body = document.getElementById("inpage-pay-body");
+  if (modal) modal.classList.add("hidden");
+  if (body) body.innerHTML = "";
+}
+
 function proceedToUpiPayment() {
   const name = document.getElementById("cust-name")?.value.trim();
   const rawPhone = document.getElementById("cust-phone")?.value.trim() || "";
@@ -487,87 +494,147 @@ function proceedToUpiPayment() {
   const totalAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
   const orderId = "PS-" + Date.now();
 
-  if (typeof LearningQuePay === "undefined") {
-    openBackupUpiScreen(totalAmount, name, cleanPhone, orderId);
+  // IE (In-Page Embedded) Formula:
+  // Agar SDK external window kholne ki koshish kare toh use intercept karke same page ke iframe modal mein load karein
+  if (typeof LearningQuePay !== "undefined") {
+    const originalWindowOpen = window.open;
+    let openedInIframe = false;
+
+    window.open = function (url) {
+      if (url && typeof url === "string" && /^https?:\/\//i.test(url)) {
+        openedInIframe = true;
+        renderInPageIframeGateway(url, totalAmount, name, cleanPhone, orderId);
+        return { closed: false, focus: function () {}, close: closeInPagePaymentModal };
+      }
+      return originalWindowOpen.apply(window, arguments);
+    };
+
+    try {
+      LearningQuePay.checkout({
+        key: CONFIG.gatewayPublicKey,
+        amount: totalAmount,
+        orderId: orderId,
+        customer: {
+          name: name,
+          email: "orders@premiumsell.in",
+          phone: cleanPhone
+        },
+        mode: "modal",
+        onSuccess: function (res) {
+          closeInPagePaymentModal();
+          handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone);
+        },
+        onFailure: function (err) {
+          closeInPagePaymentModal();
+          alert((err && (err.message || err.reason)) || "Payment was not completed. Please try again.");
+        },
+        onClose: function () {
+          closeInPagePaymentModal();
+        },
+        onError: function () {
+          openInPageUpiModal(totalAmount, name, cleanPhone, orderId);
+        }
+      });
+    } catch (e) {
+      openInPageUpiModal(totalAmount, name, cleanPhone, orderId);
+    } finally {
+      setTimeout(() => {
+        window.open = originalWindowOpen;
+      }, 1500);
+    }
     return;
   }
 
-  LearningQuePay.checkout({
-    key: CONFIG.gatewayPublicKey,
-    amount: totalAmount,
-    orderId: orderId,
-    customer: {
-      name: name,
-      email: "orders@premiumsell.in",
-      phone: cleanPhone
-    },
-    returnUrl: window.location.origin + "/",
-    mode: "popup",
-    onSuccess: function (res) {
-      handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone);
-    },
-    onFailure: function (err) {
-      alert((err && (err.message || err.reason)) || "Payment was not completed. Please try again.");
-    },
-    onClose: function () {},
-    onError: function () {
-      openBackupUpiScreen(totalAmount, name, cleanPhone, orderId);
-    }
-  });
+  // Direct In-Page UPI QR Popup (No external site)
+  openInPageUpiModal(totalAmount, name, cleanPhone, orderId);
 }
 
-function openBackupUpiScreen(totalAmount, name, cleanPhone, orderId) {
-  const itemsText = cart
-    .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
-    .join("\n");
+function renderInPageIframeGateway(gatewayUrl, totalAmount, name, cleanPhone, orderId) {
+  const modal = document.getElementById("inpage-pay-modal");
+  const body = document.getElementById("inpage-pay-body");
+  if (!modal || !body) return;
 
-  let message = `*NEW ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
-  message += `*Customer:* ${name}\n`;
-  message += `*WhatsApp:* ${cleanPhone}\n`;
-  message += `\n*Order Details:*\n${itemsText}\n\n`;
-  message += `*Total Payable:* ${CONFIG.currency}${totalAmount}\n`;
-  message += `*Order ID:* ${orderId}\n\n`;
-  message += `Hi, please share payment link / QR to activate my subscription.`;
-
-  const waOrderUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
-
-  const titleEl = document.getElementById("cart-drawer-title");
-  const step1 = document.getElementById("cart-step-1");
-  const step2 = document.getElementById("cart-step-2");
-
-  if (titleEl) titleEl.textContent = "Complete Your Order";
-  if (step1) step1.classList.add("hidden");
-  if (step2) {
-    step2.classList.remove("hidden");
-    step2.innerHTML = `
-      <div class="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 text-center space-y-3">
-        <p class="text-xs uppercase tracking-wider text-violet-400 font-bold">Instant Checkout</p>
-        <p class="text-3xl font-extrabold text-white">${CONFIG.currency}${totalAmount}</p>
-        <p class="text-xs text-slate-300 leading-relaxed">
-          Tap below to complete payment directly on WhatsApp or pay via UPI ID:
-        </p>
-        <div class="flex items-center justify-between bg-[#131A2A] border border-slate-700 rounded-xl px-3 py-2.5 text-xs">
-          <span class="font-mono text-slate-200 select-all">${CONFIG.merchantUpi}</span>
-          <button type="button" onclick="navigator.clipboard?.writeText('${CONFIG.merchantUpi}'); this.textContent='Copied!';" class="text-violet-400 font-bold">
-            Copy UPI
-          </button>
-        </div>
+  modal.classList.remove("hidden");
+  body.innerHTML = `
+    <div class="space-y-3">
+      <div class="w-full h-[460px] rounded-xl overflow-hidden border border-slate-700 bg-white">
+        <iframe src="${gatewayUrl}" class="w-full h-full border-0" allow="payment"></iframe>
       </div>
+      <div class="text-center">
+        <button type="button" onclick="openInPageUpiModal(${totalAmount}, '${name.replace(/'/g, "\\'")}', '${cleanPhone}', '${orderId}')" class="text-xs text-violet-400 hover:text-violet-300 underline">
+          Having trouble loading? Pay via In-Page UPI QR instead
+        </button>
+      </div>
+    </div>
+  `;
+}
 
-      <a
-        href="${waOrderUrl}"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold py-4 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
-      >
-        <span>Continue Order on WhatsApp →</span>
+function openInPageUpiModal(totalAmount, name, cleanPhone, orderId) {
+  const modal = document.getElementById("inpage-pay-modal");
+  const body = document.getElementById("inpage-pay-body");
+  if (!modal || !body) return;
+
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(CONFIG.merchantUpi)}&pn=${encodeURIComponent(CONFIG.storeName)}&am=${totalAmount}&cu=INR&tn=${encodeURIComponent(orderId)}`;
+
+  modal.classList.remove("hidden");
+  body.innerHTML = `
+    <div class="text-center space-y-3">
+      <p class="text-xs uppercase tracking-wider text-violet-400 font-bold">Scan & Pay on Same Page</p>
+      <p class="text-3xl font-extrabold text-white">${CONFIG.currency}${totalAmount}</p>
+
+      <div class="bg-white p-3 rounded-xl inline-block mx-auto shadow-md">
+        <div id="upi-qrcode"></div>
+      </div>
+      <p class="text-[11px] text-slate-400">Scan with GPay, PhonePe, Paytm or any UPI App</p>
+
+      <a href="${upiUrl}" class="block sm:hidden w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold">
+        Open UPI App to Pay →
       </a>
 
-      <button type="button" onclick="backToCartStep1()" class="w-full py-2 text-xs text-slate-400 hover:text-white font-medium">
-        ← Back to Cart
+      <div class="flex items-center justify-between bg-[#0F1626] border border-slate-700 rounded-xl px-3 py-2 text-xs">
+        <span class="font-mono text-slate-200 select-all">${CONFIG.merchantUpi}</span>
+        <button type="button" onclick="navigator.clipboard?.writeText('${CONFIG.merchantUpi}'); this.textContent='Copied!';" class="text-violet-400 font-bold">
+          Copy UPI
+        </button>
+      </div>
+
+      <div class="pt-1 text-left space-y-1.5">
+        <label class="text-[11px] text-slate-300 font-semibold block">Enter 12-Digit UTR / Ref No. after payment *</label>
+        <input type="text" id="inpage-utr-input" maxlength="12" placeholder="e.g. 412345678901" class="w-full px-3 py-2.5 text-sm bg-[#0F1626] text-white placeholder-slate-500 border border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500" />
+      </div>
+
+      <button
+        type="button"
+        onclick="verifyInPageUpi('${orderId}', ${totalAmount}, '${name.replace(/'/g, "\\'")}', '${cleanPhone}')"
+        class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-600/25"
+      >
+        Verify & Complete Order ✓
       </button>
-    `;
+    </div>
+  `;
+
+  const qrBox = document.getElementById("upi-qrcode");
+  if (qrBox && typeof QRCode !== "undefined") {
+    qrBox.innerHTML = "";
+    new QRCode(qrBox, {
+      text: upiUrl,
+      width: 165,
+      height: 165,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
   }
+}
+
+function verifyInPageUpi(orderId, totalAmount, name, cleanPhone) {
+  const utr = document.getElementById("inpage-utr-input")?.value.trim() || "";
+  if (!/^\d{12}$/.test(utr)) {
+    alert("Please enter a valid 12-digit UPI UTR / Reference number.");
+    return;
+  }
+  closeInPagePaymentModal();
+  handleGatewayPaymentSuccess({ transaction_id: `${orderId} (UTR: ${utr})` }, orderId, totalAmount, name, cleanPhone);
 }
 
 function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone) {
@@ -627,8 +694,6 @@ function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone
       </button>
     `;
   }
-
-  window.open(lastPaidWhatsAppUrl, "_blank");
 }
 
 function finishAndClearCart() {
