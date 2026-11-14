@@ -6,7 +6,7 @@
   <title>Premiumsell - Buy Subscriptions at Best Prices</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://pays.budgetdealz.in/public/sdk.js" onerror="var s=document.createElement('script');s.src='https://pay.learningque.in/public/sdk.js';document.head.appendChild(s);"></script>
+  <script src="https://pays.budgetdealz.in/public/sdk.js?v=1.2.0" onerror="var s=document.createElement('script');s.src='https://pay.learningque.in/public/sdk.js?v=1.2.0';document.head.appendChild(s);"></script>
   <style>
     .line-clamp-2 {
       display: -webkit-box;
@@ -82,7 +82,7 @@
   <section class="relative w-full overflow-hidden bg-[#0F1626] border-b border-slate-800">
     <div id="hero-slides" class="flex transition-transform duration-500 ease-out">
       
-      <!-- Banner 1 (Round Logo + Dark Frosted Glass Overlay) -->
+      <!-- Banner 1 -->
       <div class="w-full flex-shrink-0 relative h-[400px] sm:h-[470px] md:h-[520px] flex flex-col items-center justify-center text-center px-4 sm:px-6 overflow-hidden bg-[#0B0F19]">
         <img src="Banner1.jpeg" alt="Background" class="absolute inset-0 w-full h-full object-cover opacity-95" />
         <div class="absolute inset-0 bg-gradient-to-t from-[#0B0F19] via-black/45 to-black/30"></div>
@@ -108,14 +108,14 @@
         </div>
       </div>
 
-      <!-- Banner 2 (100% Uncropped) -->
+      <!-- Banner 2 -->
       <div class="w-full flex-shrink-0 h-[400px] sm:h-[470px] md:h-[520px] bg-[#0F1626] flex items-center justify-center">
         <a href="#catalog-section" class="w-full h-full block">
           <img src="Banner2.jpg" alt="Offer Banner 2" class="w-full h-full object-contain mx-auto" />
         </a>
       </div>
 
-      <!-- Banner 3 (100% Uncropped) -->
+      <!-- Banner 3 -->
       <div class="w-full flex-shrink-0 h-[400px] sm:h-[470px] md:h-[520px] bg-[#0F1626] flex items-center justify-center">
         <a href="#catalog-section" class="w-full h-full block">
           <img src="Banner3.jpg" alt="Offer Banner 3" class="w-full h-full object-contain mx-auto" />
@@ -150,12 +150,11 @@
     <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
   </main>
 
-  <!-- FULL-WIDTH KYC COMPLIANT FOOTER (With 4 Mandatory Policy Pages & Contact Info) -->
+  <!-- FULL-WIDTH KYC COMPLIANT FOOTER -->
   <footer class="w-full bg-[#0F1626] border-t border-slate-800 mt-16 py-10 px-4 sm:px-8 text-slate-300">
     <div class="max-w-7xl mx-auto">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         
-        <!-- Column 1: Brand, About Us & Registered Address -->
         <div>
           <div class="flex items-center gap-3 mb-3">
             <img 
@@ -177,7 +176,6 @@
           </p>
         </div>
 
-        <!-- Column 2: 4 Mandatory KYC Policy Pages -->
         <div>
           <h4 class="text-xs font-bold uppercase tracking-wider text-violet-400 mb-3">Policies & Legal</h4>
           <ul class="space-y-2.5 text-xs sm:text-sm">
@@ -204,7 +202,6 @@
           </ul>
         </div>
 
-        <!-- Column 3: Official Contact Details -->
         <div>
           <h4 class="text-xs font-bold uppercase tracking-wider text-violet-400 mb-3">Contact Us</h4>
           <ul class="space-y-2 text-xs sm:text-sm text-slate-300">
@@ -287,7 +284,6 @@
         <button onclick="togglePolicyModal(false)" class="text-slate-400 hover:text-white text-2xl leading-none">×</button>
       </div>
 
-      <!-- 4 Policy Navigation Tabs -->
       <div class="mt-3 flex flex-wrap gap-2 pb-3 border-b border-slate-800">
         <button type="button" id="tab-btn-terms" onclick="openPolicySection('terms')" class="policy-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-violet-600 text-white">
           Terms & Conditions
@@ -303,10 +299,8 @@
         </button>
       </div>
 
-      <!-- Policy Content Body -->
       <div class="mt-4 max-h-[60vh] overflow-y-auto pr-1 text-xs sm:text-sm text-slate-300 leading-relaxed space-y-4">
         
-        <!-- 1. Terms & Conditions -->
         <div id="policy-sec-terms" class="policy-section space-y-3">
           <h4 class="text-base font-bold text-white">Terms & Conditions</h4>
           <p>Welcome to <strong>PREMIUMSELL</strong>. By accessing our website and purchasing digital subscriptions or vouchers, you agree to the following terms:</p>
@@ -319,7 +313,6 @@
           </ul>
         </div>
 
-        <!-- 2. Privacy Policy -->
         <div id="policy-sec-privacy" class="policy-section hidden space-y-3">
           <h4 class="text-base font-bold text-white">Privacy Policy</h4>
           <p><strong>PREMIUMSELL</strong> respects your privacy and protects all personal data shared during checkout.</p>
@@ -331,7 +324,6 @@
           </ul>
         </div>
 
-        <!-- 3. Refund & Cancellation Policy -->
         <div id="policy-sec-refund" class="policy-section hidden space-y-3">
           <h4 class="text-base font-bold text-white">Refund & Cancellation Policy</h4>
           <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-semibold">
@@ -345,7 +337,6 @@
           </ul>
         </div>
 
-        <!-- 4. Contact Us -->
         <div id="policy-sec-contact" class="policy-section hidden space-y-3">
           <h4 class="text-base font-bold text-white">Contact Us</h4>
           <p>Need help with an order, activation, or refund? Contact our official support team:</p>
@@ -434,7 +425,7 @@
     </div>
   </aside>
 
-  <!-- SLIDE-OVER SHOPPING CART & UPI PAYMENT DRAWER -->
+  <!-- SLIDE-OVER SHOPPING CART & PAYMENT DRAWER -->
   <div id="cart-overlay" onclick="toggleCart(false)" class="fixed inset-0 bg-black/75 z-40 hidden"></div>
   <aside id="cart-drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-[#131A2A] border-l border-slate-800 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
     <div class="px-5 h-14 border-b border-slate-800 flex items-center justify-between">
@@ -442,7 +433,6 @@
       <button onclick="toggleCart(false)" class="text-slate-400 hover:text-white text-2xl leading-none">×</button>
     </div>
 
-    <!-- STEP 1: CART ITEMS & 2-FIELD CUSTOMER DETAILS -->
     <div id="cart-step-1" class="flex-1 flex flex-col overflow-hidden">
       <div id="cart-items" class="flex-1 overflow-y-auto p-5 space-y-4"></div>
 
@@ -466,65 +456,7 @@
       </div>
     </div>
 
-    <!-- STEP 2: QR CODE, 5-MINUTE COOLDOWN TIMER & 12-DIGIT UTR ENTRY -->
-    <div id="cart-step-2" class="hidden flex-1 overflow-y-auto p-5 space-y-4">
-      <div class="bg-[#0F1626] border border-slate-800 rounded-2xl p-4 text-center space-y-3">
-        <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Scan & Pay Exact Amount</p>
-        <p id="upi-pay-amount" class="text-3xl font-extrabold text-white">₹0</p>
-
-        <div id="upi-qrcode" class="bg-white p-3 rounded-xl inline-block shadow-md"></div>
-
-        <p class="text-[11px] text-slate-400">Scan with GPay, PhonePe, Paytm or any UPI App</p>
-
-        <a 
-          id="upi-direct-link" 
-          href="#download-qr" 
-          class="block w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition shadow-md"
-        >
-          📥 Download QR Code (Scan via Gallery)
-        </a>
-
-        <div class="flex items-center justify-between bg-[#131A2A] border border-slate-700 rounded-xl px-3 py-2 text-xs">
-          <span class="font-mono text-slate-200 select-all">6284854882@okbizaxis</span>
-          <button type="button" id="copy-upi-btn" onclick="copyMerchantUpi()" class="text-violet-400 hover:text-violet-300 font-bold">
-            Copy ID
-          </button>
-        </div>
-      </div>
-
-      <!-- 5-Minute Live Cooldown Timer Box -->
-      <div id="auto-verify-box" class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/35 flex items-center justify-between gap-3"></div>
-
-      <!-- 12-Digit UTR Input -->
-      <div class="space-y-1.5">
-        <label for="payment-utr" class="block text-xs font-bold text-slate-200">
-          Enter 12-Digit UPI Transaction ID (UTR)
-        </label>
-        <input 
-          type="text" 
-          id="payment-utr" 
-          maxlength="12" 
-          inputmode="numeric"
-          oninput="validateUtrInput()"
-          placeholder="e.g. 631849201547" 
-          class="w-full px-3.5 py-3 text-sm font-mono tracking-wider bg-[#0F1626] text-white placeholder-slate-500 border border-slate-700 rounded-xl focus:outline-none focus:border-violet-500"
-        />
-        <p class="text-[11px] text-slate-400">Payment ke baad 12-digit UTR number daal kar order submit karein.</p>
-      </div>
-
-      <button 
-        id="confirm-paid-btn" 
-        onclick="confirmPaidWhatsApp()" 
-        disabled
-        class="w-full bg-slate-700 text-slate-400 cursor-not-allowed font-bold py-3.5 rounded-xl text-sm transition flex items-center justify-center gap-2"
-      >
-        <span>Enter 12-Digit Transaction ID (UTR)</span>
-      </button>
-
-      <button type="button" onclick="backToCartStep1()" class="w-full py-2 text-xs text-slate-400 hover:text-white font-medium">
-        ← Back to Cart
-      </button>
-    </div>
+    <div id="cart-step-2" class="hidden flex-1 overflow-y-auto p-5 space-y-4"></div>
   </aside>
 
   <script>
@@ -547,6 +479,6 @@
       if (activeBtn) activeBtn.className = "policy-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-violet-600 text-white";
     }
   </script>
-  <script src="app.js"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
