@@ -20,12 +20,15 @@ let selectedProduct = null;
 let selectedVariantIndex = 0;
 let showAllVariants = false;
 let lastPaidWhatsAppUrl = "";
+let isPaymentHandled = false;
 
 document.addEventListener("DOMContentLoaded", () => {
   setupWhatsAppLinks();
   initHeroCarousel();
   updateCartUI();
   loadProducts();
+  setupGatewayMessageListener();
+  checkReturnUrlPaymentStatus();
 
   const searchInput = document.getElementById("search-input");
   if (searchInput) {
@@ -377,7 +380,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & IE (IN-PAGE EMBEDDED) PAYMENT
+// SHOPPING CART & MULTI-LAYER PAYMENT VERIFICATION
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -466,6 +469,110 @@ function updateCartUI() {
     .join("");
 }
 
+function savePendingOrder(orderId, totalAmount, name, cleanPhone) {
+  const pending = {
+    orderId,
+    totalAmount,
+    name,
+    cleanPhone,
+    items: JSON.parse(JSON.stringify(cart)),
+    createdAt: Date.now()
+  };
+  localStorage.setItem("premiumsell_pending_order", JSON.stringify(pending));
+}
+
+function getPendingOrder() {
+  try {
+    const raw = localStorage.getItem("premiumsell_pending_order");
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (Date.now() - (data.createdAt || 0) > 30 * 60 * 1000) {
+      localStorage.removeItem("premiumsell_pending_order");
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingOrder() {
+  localStorage.removeItem("premiumsell_pending_order");
+}
+
+// Layer 2: Listen to postMessage events sent by LearningQuePay / Cashfree modal iframe
+function setupGatewayMessageListener() {
+  window.addEventListener("message", (event) => {
+    const raw = event.data;
+    if (!raw) return;
+
+    let payload = raw;
+    if (typeof raw === "string") {
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        if (/paid|success|payment_success/i.test(raw)) {
+          payload = { status: "SUCCESS" };
+        } else {
+          return;
+        }
+      }
+    }
+
+    const statusStr = String(
+      payload.status ||
+      payload.payment_status ||
+      payload.txStatus ||
+      payload.event ||
+      payload.type ||
+      (payload.data && (payload.data.status || payload.data.payment_status)) ||
+      ""
+    ).toUpperCase();
+
+    if (
+      statusStr.includes("SUCCESS") ||
+      statusStr.includes("PAID") ||
+      statusStr === "PAYMENT_COMPLETED"
+    ) {
+      const pending = getPendingOrder();
+      if (pending && !isPaymentHandled) {
+        const resObj = payload.data || payload;
+        closeInPagePaymentModal();
+        handleGatewayPaymentSuccess(
+          resObj,
+          pending.orderId,
+          pending.totalAmount,
+          pending.name,
+          pending.cleanPhone,
+          pending.items
+        );
+      }
+    }
+  });
+}
+
+// Check if browser returned via URL parameters
+function checkReturnUrlPaymentStatus() {
+  const params = new URLSearchParams(window.location.search);
+  const status = (params.get("status") || params.get("payment_status") || "").toUpperCase();
+  const orderParam = params.get("order_id") || params.get("orderId") || "";
+
+  if ((status === "SUCCESS" || status === "PAID") && !isPaymentHandled) {
+    const pending = getPendingOrder();
+    if (pending) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      handleGatewayPaymentSuccess(
+        { order_id: orderParam || pending.orderId },
+        pending.orderId,
+        pending.totalAmount,
+        pending.name,
+        pending.cleanPhone,
+        pending.items
+      );
+    }
+  }
+}
+
 function closeInPagePaymentModal() {
   const modal = document.getElementById("inpage-pay-modal");
   const body = document.getElementById("inpage-pay-body");
@@ -494,15 +601,14 @@ function proceedToUpiPayment() {
   const totalAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
   const orderId = "PS-" + Date.now();
 
-  // IE (In-Page Embedded) Formula:
-  // Agar SDK external window kholne ki koshish kare toh use intercept karke same page ke iframe modal mein load karein
+  isPaymentHandled = false;
+  savePendingOrder(orderId, totalAmount, name, cleanPhone);
+
   if (typeof LearningQuePay !== "undefined") {
     const originalWindowOpen = window.open;
-    let openedInIframe = false;
 
     window.open = function (url) {
       if (url && typeof url === "string" && /^https?:\/\//i.test(url)) {
-        openedInIframe = true;
         renderInPageIframeGateway(url, totalAmount, name, cleanPhone, orderId);
         return { closed: false, focus: function () {}, close: closeInPagePaymentModal };
       }
@@ -519,6 +625,7 @@ function proceedToUpiPayment() {
           email: "orders@premiumsell.in",
           phone: cleanPhone
         },
+        returnUrl: window.location.origin + window.location.pathname,
         mode: "modal",
         onSuccess: function (res) {
           closeInPagePaymentModal();
@@ -530,6 +637,12 @@ function proceedToUpiPayment() {
         },
         onClose: function () {
           closeInPagePaymentModal();
+          // Layer 3: Check if payment completed right before modal closed
+          setTimeout(() => {
+            if (!isPaymentHandled) {
+              verifyGatewayOrderStatusFallback(orderId, totalAmount, name, cleanPhone);
+            }
+          }, 800);
         },
         onError: function () {
           openInPageUpiModal(totalAmount, name, cleanPhone, orderId);
@@ -545,8 +658,30 @@ function proceedToUpiPayment() {
     return;
   }
 
-  // Direct In-Page UPI QR Popup (No external site)
   openInPageUpiModal(totalAmount, name, cleanPhone, orderId);
+}
+
+// Layer 3 Fallback: Query LearningQuePay status endpoint if modal closed after payment
+async function verifyGatewayOrderStatusFallback(orderId, totalAmount, name, cleanPhone) {
+  const endpoints = [
+    `https://pays.budgetdealz.in/api/order-status?order_id=${encodeURIComponent(orderId)}&key=${encodeURIComponent(CONFIG.gatewayPublicKey)}`,
+    `https://pay.learningque.in/api/order-status?order_id=${encodeURIComponent(orderId)}&key=${encodeURIComponent(CONFIG.gatewayPublicKey)}`
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const st = String(data.status || data.payment_status || (data.data && data.data.status) || "").toUpperCase();
+      if ((st === "PAID" || st === "SUCCESS") && !isPaymentHandled) {
+        handleGatewayPaymentSuccess(data.data || data, orderId, totalAmount, name, cleanPhone);
+        return;
+      }
+    } catch {
+      // Ignore network/CORS error and try next
+    }
+  }
 }
 
 function renderInPageIframeGateway(gatewayUrl, totalAmount, name, cleanPhone, orderId) {
@@ -637,10 +772,16 @@ function verifyInPageUpi(orderId, totalAmount, name, cleanPhone) {
   handleGatewayPaymentSuccess({ transaction_id: `${orderId} (UTR: ${utr})` }, orderId, totalAmount, name, cleanPhone);
 }
 
-function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone) {
-  const gatewayRef = (res && (res.order_id || res.payment_id || res.transaction_id || res.id)) || orderId;
+function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone, savedItems = null) {
+  if (isPaymentHandled) return;
+  isPaymentHandled = true;
+  clearPendingOrder();
 
-  const itemsText = cart
+  const orderItems = savedItems && savedItems.length > 0 ? savedItems : cart;
+  const gatewayRef =
+    (res && (res.order_id || res.gateway_order_id || res.payment_id || res.transaction_id || res.id)) || orderId;
+
+  const itemsText = orderItems
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
     .join("\n");
 
@@ -654,6 +795,11 @@ function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone
   message += `Please activate my subscription!`;
 
   lastPaidWhatsAppUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+  // Clear cart immediately so user cannot accidentally pay twice
+  cart = [];
+  saveCart();
+  updateCartUI();
 
   const overlay = document.getElementById("cart-overlay");
   const drawer = document.getElementById("cart-drawer");
