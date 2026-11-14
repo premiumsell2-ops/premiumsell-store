@@ -4,7 +4,7 @@
 const CONFIG = {
   storeName: "Premiumsell",
   whatsappNumber: "916284854882",
-  gatewayPublicKey: "lq_pk_9c7430850e533100ba189f9b",
+  gatewayPublicKey: "lq_sk_1c329e00ef342cdff1d9b6986624deee5cf131afbe9ea242",
   currency: "₹"
 };
 
