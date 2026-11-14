@@ -4,8 +4,7 @@
 const CONFIG = {
   storeName: "Premiumsell",
   whatsappNumber: "916284854882",
-  upiId: "6284854882@okbizaxis",
-  merchantName: "Premiumsell",
+  gatewayPublicKey: "lq_pk_9c7430850e533100ba189f9b",
   currency: "₹"
 };
 
@@ -20,8 +19,7 @@ let selectedProduct = null;
 let selectedVariantIndex = 0;
 let showAllVariants = false;
 
-let currentOrderAmount = 0;
-let paymentTimerInterval = null;
+let lastPaidWhatsAppUrl = "";
 
 document.addEventListener("DOMContentLoaded", () => {
   setupWhatsAppLinks();
@@ -430,7 +428,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & 5-MINUTE COOLDOWN UTR FLOW
+// SHOPPING CART & PAYMENT GATEWAY CHECKOUT
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -525,256 +523,127 @@ function updateCartUI() {
 
 function proceedToUpiPayment() {
   const name = document.getElementById("cust-name")?.value.trim();
-  const phone = document.getElementById("cust-phone")?.value.trim();
+  const rawPhone = document.getElementById("cust-phone")?.value.trim() || "";
+  const cleanPhone = rawPhone.replace(/\D/g, "").slice(-10);
 
-  if (!name || !phone) {
-    alert("Please enter your Name and WhatsApp Number.");
+  if (!name) {
+    alert("Please enter your Name.");
+    return;
+  }
+
+  if (cleanPhone.length !== 10) {
+    alert("Please enter a valid 10-digit WhatsApp Number.");
     return;
   }
 
   if (cart.length === 0) return;
 
+  if (typeof LearningQuePay === "undefined") {
+    alert("Payment Gateway SDK is loading. Please wait 2 seconds and try again.");
+    return;
+  }
+
   const baseTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  currentOrderAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
+  const totalAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
+  const orderId = "PS-" + Date.now();
 
-  const note = `Order ${currentOrderAmount}`;
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(CONFIG.upiId)}&pn=${encodeURIComponent(CONFIG.merchantName)}&am=${currentOrderAmount}&cu=INR&tn=${encodeURIComponent(note)}`;
-
-  const amountEl = document.getElementById("upi-pay-amount");
-  const directLinkEl = document.getElementById("upi-direct-link");
-  const qrContainer = document.getElementById("upi-qrcode");
-  const titleEl = document.getElementById("cart-drawer-title");
-
-  if (amountEl) amountEl.textContent = `${CONFIG.currency}${currentOrderAmount}`;
-  if (titleEl) titleEl.textContent = "Complete Payment";
-
-  if (directLinkEl) {
-    directLinkEl.href = "#download-qr";
-    directLinkEl.removeAttribute("target");
-    directLinkEl.textContent = "📥 Download QR Code (Scan via Gallery)";
-    directLinkEl.onclick = (e) => {
-      e.preventDefault();
-      downloadPaymentQr(upiUrl);
-    };
-  }
-
-  if (qrContainer) {
-    qrContainer.innerHTML = "";
-    if (typeof QRCode !== "undefined") {
-      new QRCode(qrContainer, {
-        text: upiUrl,
-        width: 185,
-        height: 185,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
-      });
-    } else {
-      qrContainer.innerHTML = `<img crossorigin="anonymous" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiUrl)}" alt="UPI QR" class="w-44 h-44" />`;
-    }
-  }
-
-  // Clean up UTR label & helper text to remove old auto-verify text
-  const utrInput = document.getElementById("payment-utr");
-  if (utrInput) {
-    utrInput.value = "";
-    const parent = utrInput.parentElement;
-    if (parent) {
-      const lbl = parent.querySelector("label");
-      if (lbl) lbl.textContent = "Enter 12-Digit UPI Transaction ID (UTR)";
-      const helpers = parent.querySelectorAll("p");
-      helpers.forEach((p) => {
-        if (p.textContent.toLowerCase().includes("auto-verify")) {
-          p.textContent = "Payment ke baad 12-digit UTR number daal kar order submit karein.";
-        }
-      });
-    }
-  }
-
-  validateUtrInput();
-
-  document.getElementById("cart-step-1")?.classList.add("hidden");
-  document.getElementById("cart-step-2")?.classList.remove("hidden");
-
-  // Start 5-minute (300 seconds) live countdown timer
-  startPaymentCountdown(300);
-}
-
-function startPaymentCountdown(totalSeconds = 300) {
-  stopPaymentCountdown();
-  const box = document.getElementById("auto-verify-box");
-  if (!box) return;
-
-  let remaining = totalSeconds;
-
-  const renderTimer = () => {
-    const mins = String(Math.floor(remaining / 60)).padStart(2, "0");
-    const secs = String(remaining % 60).padStart(2, "0");
-    const isUrgent = remaining <= 60;
-
-    if (remaining <= 0) {
-      stopPaymentCountdown();
-      box.className = "p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-between gap-3";
-      box.innerHTML = `
-        <div>
-          <p class="text-xs font-extrabold text-rose-400">⏳ Payment Window Expired</p>
-          <p class="text-[11px] text-slate-300 mt-0.5">Timer dobara chalu karke payment aur UTR submit karein.</p>
-        </div>
-        <button type="button" onclick="startPaymentCountdown(300)" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex-shrink-0">
-          Restart 05:00
-        </button>
-      `;
-      return;
-    }
-
-    box.className = isUrgent
-      ? "p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-between gap-3"
-      : "p-3 rounded-xl bg-amber-500/10 border border-amber-500/35 flex items-center justify-between gap-3";
-
-    box.innerHTML = `
-      <div class="min-w-0">
-        <p class="text-xs font-extrabold ${isUrgent ? "text-rose-400" : "text-amber-300"}">
-          ⏳ Complete Payment Within 5 Minutes
-        </p>
-        <p class="text-[11px] text-slate-300 mt-0.5">
-          Jaldi ${CONFIG.currency}${currentOrderAmount} pay karke niche 12-digit UTR submit karein.
-        </p>
-      </div>
-      <div class="px-2.5 py-1.5 rounded-lg ${isUrgent ? "bg-rose-500/20 text-rose-300 border border-rose-500/40" : "bg-amber-500/20 text-amber-300 border border-amber-500/40"} font-mono text-sm font-extrabold flex-shrink-0">
-        ${mins}:${secs}
-      </div>
-    `;
-  };
-
-  renderTimer();
-  paymentTimerInterval = setInterval(() => {
-    remaining -= 1;
-    renderTimer();
-  }, 1000);
-}
-
-function stopPaymentCountdown() {
-  if (paymentTimerInterval) {
-    clearInterval(paymentTimerInterval);
-    paymentTimerInterval = null;
-  }
-}
-
-function downloadPaymentQr(upiUrl) {
-  const qrContainer = document.getElementById("upi-qrcode");
-  const existingCanvas = qrContainer ? qrContainer.querySelector("canvas") : null;
-  const existingImg = qrContainer ? qrContainer.querySelector("img") : null;
-
-  const triggerDownload = (dataUrl) => {
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `Premiumsell-Pay-${currentOrderAmount}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
-  if (existingCanvas) {
-    const padded = document.createElement("canvas");
-    const pad = 24;
-    padded.width = existingCanvas.width + pad * 2;
-    padded.height = existingCanvas.height + pad * 2;
-    const ctx = padded.getContext("2d");
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, padded.width, padded.height);
-    ctx.drawImage(existingCanvas, pad, pad);
-    triggerDownload(padded.toDataURL("image/png"));
-    return;
-  }
-
-  if (existingImg && existingImg.src.startsWith("data:")) {
-    triggerDownload(existingImg.src);
-    return;
-  }
-
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(upiUrl)}`;
-  fetch(qrApiUrl)
-    .then((r) => r.blob())
-    .then((blob) => {
-      const url = URL.createObjectURL(blob);
-      triggerDownload(url);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    })
-    .catch(() => {
-      window.open(qrApiUrl, "_blank");
-    });
-}
-
-function isValidUtr(utr) {
-  if (!/^\d{12}$/.test(utr)) return false;
-  if (/^(\d)\1{11}$/.test(utr)) return false;
-  if (utr === "123456789012" || utr === "987654321098") return false;
-  return true;
-}
-
-function validateUtrInput() {
-  const utrInput = document.getElementById("payment-utr");
-  const btn = document.getElementById("confirm-paid-btn");
-  if (!utrInput || !btn) return;
-
-  utrInput.value = utrInput.value.replace(/\D/g, "");
-  const utr = utrInput.value;
-
-  if (isValidUtr(utr)) {
-    btn.disabled = false;
-    btn.className = "w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white cursor-pointer font-bold py-3.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2";
-    btn.innerHTML = `<span>Submit Order on WhatsApp →</span>`;
-  } else {
-    btn.disabled = true;
-    btn.className = "w-full bg-slate-700 text-slate-400 cursor-not-allowed font-bold py-3.5 rounded-xl text-sm transition flex items-center justify-center gap-2";
-    btn.innerHTML = `<span>Enter 12-Digit Transaction ID (UTR)</span>`;
-  }
-}
-
-function backToCartStep1() {
-  stopPaymentCountdown();
-  const titleEl = document.getElementById("cart-drawer-title");
-  if (titleEl) titleEl.textContent = "Your Cart";
-  document.getElementById("cart-step-2")?.classList.add("hidden");
-  document.getElementById("cart-step-1")?.classList.remove("hidden");
-}
-
-function copyMerchantUpi() {
-  navigator.clipboard.writeText(CONFIG.upiId).then(() => {
-    const btn = document.getElementById("copy-upi-btn");
-    if (btn) {
-      btn.textContent = "Copied!";
-      setTimeout(() => { btn.textContent = "Copy ID"; }, 2000);
+  LearningQuePay.checkout({
+    key: CONFIG.gatewayPublicKey,
+    amount: totalAmount,
+    orderId: orderId,
+    customer: {
+      name: name,
+      email: "orders@premiumsell.in",
+      phone: cleanPhone
+    },
+    returnUrl: window.location.origin + "/",
+    mode: "popup",
+    onSuccess: function (res) {
+      handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone);
+    },
+    onFailure: function () {
+      alert("Payment was not completed. Please try again.");
+    },
+    onClose: function () {},
+    onError: function (err) {
+      alert((err && err.message) ? err.message : "Payment error. Check Allowed Domains in dashboard.");
     }
   });
 }
 
-function confirmPaidWhatsApp() {
-  const name = document.getElementById("cust-name")?.value.trim();
-  const phone = document.getElementById("cust-phone")?.value.trim();
-  const utr = document.getElementById("payment-utr")?.value.trim();
-
-  if (!isValidUtr(utr)) {
-    alert("Please enter a valid 12-digit UPI Transaction ID (UTR).");
-    return;
-  }
-
-  stopPaymentCountdown();
+function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone) {
+  const gatewayRef =
+    (res && (res.order_id || res.payment_id || res.transaction_id || res.id)) || orderId;
 
   const itemsText = cart
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
     .join("\n");
 
-  let message = `*NEW PAID ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
+  let message = `*PAID ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
   message += `*Customer:* ${name}\n`;
-  message += `*WhatsApp:* ${phone}\n`;
+  message += `*WhatsApp:* ${cleanPhone}\n`;
   message += `\n*Order Details:*\n${itemsText}\n\n`;
-  message += `*Amount Paid:* ${CONFIG.currency}${currentOrderAmount}\n`;
-  message += `*Transaction ID (UTR):* ${utr}\n\n`;
-  message += `Please verify my UTR and activate my subscription!`;
+  message += `*Amount Paid:* ${CONFIG.currency}${totalAmount}\n`;
+  message += `*Gateway Order ID:* ${gatewayRef}\n`;
+  message += `*Status:* ✅ Paid Online\n\n`;
+  message += `Please activate my subscription!`;
 
-  const waUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
-  window.open(waUrl, "_blank");
+  lastPaidWhatsAppUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
+
+  const titleEl = document.getElementById("cart-drawer-title");
+  const step1 = document.getElementById("cart-step-1");
+  const step2 = document.getElementById("cart-step-2");
+
+  if (titleEl) titleEl.textContent = "Payment Successful";
+  if (step1) step1.classList.add("hidden");
+  if (step2) {
+    step2.classList.remove("hidden");
+    step2.innerHTML = `
+      <div class="bg-emerald-500/10 border border-emerald-500/35 rounded-2xl p-6 text-center space-y-3">
+        <div class="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-3xl font-bold">
+          ✓
+        </div>
+        <h3 class="text-lg font-extrabold text-white">Payment Confirmed!</h3>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Your payment of <strong class="text-emerald-400">${CONFIG.currency}${totalAmount}</strong> has been received.
+        </p>
+        <div class="bg-[#0F1626] border border-slate-800 rounded-xl p-3 text-xs text-slate-300 space-y-1">
+          <p><strong class="text-white">Order ID:</strong> <span class="font-mono text-violet-300">${gatewayRef}</span></p>
+          <p><strong class="text-white">Customer:</strong> ${name} (${cleanPhone})</p>
+        </div>
+      </div>
+
+      <a
+        href="${lastPaidWhatsAppUrl}"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold py-4 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+      >
+        <span>Send Paid Order on WhatsApp →</span>
+      </a>
+
+      <button type="button" onclick="finishAndClearCart()" class="w-full py-2.5 text-xs text-slate-400 hover:text-white font-medium">
+        Done & Continue Shopping
+      </button>
+    `;
+  }
+
+  window.open(lastPaidWhatsAppUrl, "_blank");
+}
+
+function finishAndClearCart() {
+  cart = [];
+  saveCart();
+  updateCartUI();
+  backToCartStep1();
+  toggleCart(false);
+}
+
+function backToCartStep1() {
+  const titleEl = document.getElementById("cart-drawer-title");
+  if (titleEl) titleEl.textContent = "Your Cart";
+  document.getElementById("cart-step-2")?.classList.add("hidden");
+  document.getElementById("cart-step-1")?.classList.remove("hidden");
 }
 
 // ==========================================
@@ -804,7 +673,6 @@ function toggleCart(open) {
     overlay.classList.remove("hidden");
     drawer.classList.remove("translate-x-full");
   } else {
-    stopPaymentCountdown();
     overlay.classList.add("hidden");
     drawer.classList.add("translate-x-full");
   }
