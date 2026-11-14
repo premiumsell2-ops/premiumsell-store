@@ -19,7 +19,6 @@ let slideInterval = null;
 let selectedProduct = null;
 let selectedVariantIndex = 0;
 let showAllVariants = false;
-
 let lastPaidWhatsAppUrl = "";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -82,7 +81,6 @@ function initHeroCarousel() {
     dot.onclick = () => goToSlide(i);
     dotsContainer.appendChild(dot);
   }
-
   startSlideTimer();
 }
 
@@ -223,31 +221,17 @@ function renderProducts() {
         <div onclick="openProductModal('${product.id}')" class="group bg-[#131A2A] border border-slate-800 hover:border-violet-500/60 rounded-xl overflow-hidden flex flex-col cursor-pointer transition shadow-md">
           <div class="relative aspect-square bg-[#0F1626] overflow-hidden">
             <img src="${product.image}" alt="${product.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300 ${outOfStock ? "opacity-40" : ""}" />
-            ${
-              discount > 0
-                ? `<span class="absolute top-2 left-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">${discount}% OFF</span>`
-                : ""
-            }
-            ${
-              outOfStock
-                ? `<span class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-xs font-bold uppercase tracking-wider">Out of Stock</span>`
-                : ""
-            }
+            ${discount > 0 ? `<span class="absolute top-2 left-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">${discount}% OFF</span>` : ""}
+            ${outOfStock ? `<span class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-xs font-bold uppercase tracking-wider">Out of Stock</span>` : ""}
           </div>
-
           <div class="p-3 flex-1 flex flex-col justify-between">
             <div>
               <h4 class="text-xs sm:text-sm font-bold text-slate-100 line-clamp-2 leading-snug">${product.name}</h4>
               <div class="mt-2 flex items-baseline gap-1.5 flex-wrap">
                 <span class="text-sm sm:text-base font-extrabold text-white">${CONFIG.currency}${displayPrice}</span>
-                ${
-                  displayMrp > displayPrice
-                    ? `<span class="text-xs text-slate-400 line-through">${CONFIG.currency}${displayMrp}</span>`
-                    : ""
-                }
+                ${displayMrp > displayPrice ? `<span class="text-xs text-slate-400 line-through">${CONFIG.currency}${displayMrp}</span>` : ""}
               </div>
             </div>
-
             <button
               onclick="event.stopPropagation(); openProductModal('${product.id}')"
               ${outOfStock ? "disabled" : ""}
@@ -276,7 +260,6 @@ function openProductModal(productId) {
   selectedProduct = product;
   selectedVariantIndex = 0;
   showAllVariants = false;
-
   renderProductModalContent();
 
   const modal = document.getElementById("product-modal");
@@ -325,7 +308,6 @@ function renderProductModalContent() {
         <p class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3">
           SELECT :: <span class="text-violet-400">${activeVariant.label}</span>
         </p>
-
         <div class="flex flex-col gap-2.5">
           ${visibleVariants
             .map((v, idx) => {
@@ -347,18 +329,11 @@ function renderProductModalContent() {
             })
             .join("")}
         </div>
-
         ${
           hasMoreThanThree
-            ? `
-              <button
-                type="button"
-                onclick="toggleVariantsExpand()"
-                class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-400 hover:text-violet-300 transition"
-              >
+            ? `<button type="button" onclick="toggleVariantsExpand()" class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-400 hover:text-violet-300 transition">
                 <span>${showAllVariants ? "− View less" : "+ View more"}</span>
-              </button>
-            `
+              </button>`
             : ""
         }
       </div>
@@ -367,69 +342,42 @@ function renderProductModalContent() {
 
   container.innerHTML = `
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10 items-start">
-      
       <div class="bg-[#131A2A] border border-slate-800 rounded-2xl p-3 sm:p-5 flex items-center justify-center md:sticky md:top-24">
         <img src="${selectedProduct.image}" alt="${selectedProduct.name}" class="w-full h-auto max-h-[540px] object-contain rounded-xl" />
       </div>
-
       <div class="space-y-4">
         <div>
           <span class="text-xs font-semibold uppercase tracking-wider text-violet-400">${selectedProduct.category || "Subscription"}</span>
           <h1 class="text-2xl sm:text-3xl font-extrabold text-white mt-1">${selectedProduct.name}</h1>
-
           <div class="mt-2.5 flex items-center gap-3">
             <span class="text-2xl sm:text-3xl font-extrabold text-white">${CONFIG.currency}${price}</span>
             ${mrp > price ? `<span class="text-base text-slate-400 line-through">${CONFIG.currency}${mrp}</span>` : ""}
             ${discount > 0 ? `<span class="bg-emerald-600 text-white text-xs font-bold px-2.5 py-0.5 rounded">${discount}% OFF</span>` : ""}
           </div>
         </div>
-
         ${variantsHtml}
-
-        ${
-          selectedProduct.shortRule
-            ? `<div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs sm:text-sm leading-relaxed">${selectedProduct.shortRule}</div>`
-            : ""
-        }
-
+        ${selectedProduct.shortRule ? `<div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs sm:text-sm leading-relaxed">${selectedProduct.shortRule}</div>` : ""}
         <div>
           <h3 class="text-sm sm:text-base font-bold text-white mb-2">Product Description</h3>
           <div class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">${selectedProduct.description || ""}</div>
         </div>
-
-        ${
-          selectedProduct.moreDetails
-            ? `<div class="pt-3 border-t border-slate-800 text-xs sm:text-sm text-slate-400">${selectedProduct.moreDetails}</div>`
-            : ""
-        }
+        ${selectedProduct.moreDetails ? `<div class="pt-3 border-t border-slate-800 text-xs sm:text-sm text-slate-400">${selectedProduct.moreDetails}</div>` : ""}
       </div>
-
     </div>
   `;
 
   const addBtn = document.getElementById("modal-add-btn");
   const buyBtn = document.getElementById("modal-buy-btn");
-
   if (addBtn && buyBtn) {
     addBtn.disabled = outOfStock;
     buyBtn.disabled = outOfStock;
-
-    addBtn.onclick = () => {
-      addToCart(selectedProduct, activeVariant);
-      closeProductModal();
-      toggleCart(true);
-    };
-
-    buyBtn.onclick = () => {
-      addToCart(selectedProduct, activeVariant);
-      closeProductModal();
-      toggleCart(true);
-    };
+    addBtn.onclick = () => { addToCart(selectedProduct, activeVariant); closeProductModal(); toggleCart(true); };
+    buyBtn.onclick = () => { addToCart(selectedProduct, activeVariant); closeProductModal(); toggleCart(true); };
   }
 }
 
 // ==========================================
-// SHOPPING CART & PAYMENT GATEWAY (POPUP + SAFE FALLBACK)
+// SHOPPING CART & PAYMENT GATEWAY CHECKOUT
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -450,7 +398,6 @@ function addToCart(product, variant) {
       qty: 1
     });
   }
-
   saveCart();
   updateCartUI();
 }
@@ -458,10 +405,8 @@ function addToCart(product, variant) {
 function updateCartQty(key, delta) {
   const index = cart.findIndex((item) => item.key === key);
   if (index === -1) return;
-
   cart[index].qty += delta;
   if (cart[index].qty <= 0) cart.splice(index, 1);
-
   saveCart();
   updateCartUI();
 }
@@ -482,7 +427,6 @@ function updateCartUI() {
   const itemsContainer = document.getElementById("cart-items");
   const footer = document.getElementById("cart-footer");
   const totalEl = document.getElementById("cart-total");
-
   if (!itemsContainer) return;
 
   if (cart.length === 0) {
@@ -563,8 +507,7 @@ function proceedToUpiPayment() {
       handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone);
     },
     onFailure: function (err) {
-      const msg = (err && (err.message || err.reason)) || "Payment was not completed. Please try again.";
-      alert(msg);
+      alert((err && (err.message || err.reason)) || "Payment was not completed. Please try again.");
     },
     onClose: function () {},
     onError: function () {
@@ -573,7 +516,6 @@ function proceedToUpiPayment() {
   });
 }
 
-// Safe fallback if browser blocks popups or gateway network is unreachable
 function openBackupUpiScreen(totalAmount, name, cleanPhone, orderId) {
   const itemsText = cart
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
@@ -602,7 +544,7 @@ function openBackupUpiScreen(totalAmount, name, cleanPhone, orderId) {
         <p class="text-xs uppercase tracking-wider text-violet-400 font-bold">Instant Checkout</p>
         <p class="text-3xl font-extrabold text-white">${CONFIG.currency}${totalAmount}</p>
         <p class="text-xs text-slate-300 leading-relaxed">
-          Your browser blocked the payment popup window. Tap below to complete payment directly on WhatsApp or pay via UPI ID:
+          Tap below to complete payment directly on WhatsApp or pay via UPI ID:
         </p>
         <div class="flex items-center justify-between bg-[#131A2A] border border-slate-700 rounded-xl px-3 py-2.5 text-xs">
           <span class="font-mono text-slate-200 select-all">${CONFIG.merchantUpi}</span>
@@ -629,8 +571,7 @@ function openBackupUpiScreen(totalAmount, name, cleanPhone, orderId) {
 }
 
 function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone) {
-  const gatewayRef =
-    (res && (res.order_id || res.payment_id || res.transaction_id || res.id)) || orderId;
+  const gatewayRef = (res && (res.order_id || res.payment_id || res.transaction_id || res.id)) || orderId;
 
   const itemsText = cart
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
@@ -661,9 +602,7 @@ function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone
     step2.classList.remove("hidden");
     step2.innerHTML = `
       <div class="bg-emerald-500/10 border border-emerald-500/35 rounded-2xl p-6 text-center space-y-3">
-        <div class="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-3xl font-bold">
-          ✓
-        </div>
+        <div class="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-3xl font-bold">✓</div>
         <h3 class="text-lg font-extrabold text-white">Payment Confirmed!</h3>
         <p class="text-xs text-slate-300 leading-relaxed">
           Your payment of <strong class="text-emerald-400">${CONFIG.currency}${totalAmount}</strong> has been received.
@@ -714,7 +653,6 @@ function toggleMenu(open) {
   const overlay = document.getElementById("menu-overlay");
   const drawer = document.getElementById("menu-drawer");
   if (!overlay || !drawer) return;
-
   if (open) {
     overlay.classList.remove("hidden");
     drawer.classList.remove("-translate-x-full");
@@ -728,7 +666,6 @@ function toggleCart(open) {
   const overlay = document.getElementById("cart-overlay");
   const drawer = document.getElementById("cart-drawer");
   if (!overlay || !drawer) return;
-
   if (open) {
     backToCartStep1();
     overlay.classList.remove("hidden");
@@ -752,3 +689,4 @@ function togglePolicyModal(open) {
   if (open) modal.classList.remove("hidden");
   else modal.classList.add("hidden");
 }
+// END OF APP.JS
