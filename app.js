@@ -428,7 +428,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & PAYMENT GATEWAY (NEW TAB / POPUP)
+// SHOPPING CART & PAYMENT GATEWAY (IFRAME MODE)
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -547,6 +547,9 @@ function proceedToUpiPayment() {
   const totalAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
   const orderId = "PS-" + Date.now();
 
+  // Close cart drawer first so the iframe overlay appears clearly above everything
+  toggleCart(false);
+
   LearningQuePay.checkout({
     key: CONFIG.gatewayPublicKey,
     amount: totalAmount,
@@ -557,16 +560,21 @@ function proceedToUpiPayment() {
       phone: cleanPhone
     },
     returnUrl: window.location.origin + "/",
-    mode: "popup",
+    mode: "iframe",
     onSuccess: function (res) {
       handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone);
     },
     onFailure: function (err) {
-      alert((err && err.message) ? err.message : "Payment was not completed. Please try again.");
+      const msg = (err && (err.message || err.reason)) || "Payment was not completed. Please try again.";
+      alert(msg);
     },
     onClose: function () {},
     onError: function (err) {
-      alert((err && err.message) ? err.message : "Payment error. Please check Allowed Domains in dashboard.");
+      const msg =
+        (err && (err.message || err.error)) ||
+        (typeof err === "string" ? err : JSON.stringify(err)) ||
+        "Payment error. Check Allowed Domains in dashboard.";
+      alert("Gateway Error: " + msg);
     }
   });
 }
@@ -627,7 +635,7 @@ function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone
       </a>
 
       <button type="button" onclick="finishAndClearCart()" class="w-full py-2.5 text-xs text-slate-400 hover:text-white font-medium">
-        Done & Continue Shopping
+        Done &amp; Continue Shopping
       </button>
     `;
   }
