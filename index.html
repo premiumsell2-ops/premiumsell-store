@@ -1,413 +1,825 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Premiumsell - Buy Subscriptions at Best Prices</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <style>
-    .line-clamp-2 {
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
+// ==========================================
+// PREMIUMSELL STORE CONFIGURATION
+// ==========================================
+const CONFIG = {
+  storeName: "Premiumsell",
+  whatsappNumber: "916284854882",
+  upiId: "6284854882@okbizaxis",
+  merchantName: "Premiumsell",
+  currency: "₹"
+};
+
+let products = [];
+let cart = JSON.parse(localStorage.getItem("premiumsell_cart") || "[]");
+let activeCategory = "All";
+let searchQuery = "";
+let currentSlide = 0;
+let slideInterval = null;
+
+let selectedProduct = null;
+let selectedVariantIndex = 0;
+let showAllVariants = false;
+
+let currentOrderAmount = 0;
+let paymentTimerInterval = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  setupWhatsAppLinks();
+  initHeroCarousel();
+  updateCartUI();
+  loadProducts();
+
+  const searchInput = document.getElementById("search-input");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      renderProducts();
+    });
+  }
+});
+
+function setupWhatsAppLinks() {
+  const defaultMsg = encodeURIComponent(`Hi ${CONFIG.storeName}, I need help with a subscription.`);
+  const waUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${defaultMsg}`;
+
+  const headerWa = document.getElementById("header-wa-link");
+  const drawerWa = document.getElementById("drawer-wa-link");
+  const footerWa = document.getElementById("footer-wa-link");
+  if (headerWa) headerWa.href = waUrl;
+  if (drawerWa) drawerWa.href = waUrl;
+  if (footerWa) footerWa.href = waUrl;
+}
+
+async function loadProducts() {
+  try {
+    const res = await fetch(`products.json?v=${Date.now()}`);
+    products = await res.json();
+    populateCategories();
+    renderProducts();
+  } catch (err) {
+    console.error("Error loading products:", err);
+    const grid = document.getElementById("product-grid");
+    if (grid) {
+      grid.innerHTML = `<p class="col-span-full text-center text-sm text-slate-400 py-10">Unable to load products. Please check products.json formatting.</p>`;
     }
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    #upi-qrcode img, #upi-qrcode canvas {
-      margin: 0 auto;
-      border-radius: 8px;
-    }
-  </style>
-</head>
-<body class="bg-[#0B0F19] text-slate-100 font-sans antialiased pb-24">
+  }
+}
 
-  <!-- TOP STICKY HEADER -->
-  <header class="sticky top-0 z-30 bg-[#0B0F19]/90 backdrop-blur-md border-b border-slate-800 w-full">
-    <div class="w-full px-4 sm:px-8 h-14 sm:h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <button onclick="toggleMenu(true)" aria-label="Menu" class="p-1.5 -ml-1.5 text-slate-200 hover:bg-slate-800 rounded-lg">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        <a href="#" onclick="resetHome(event)" id="header-brand" class="font-extrabold text-base sm:text-lg tracking-wider text-white uppercase">
-          PREMIUMSELL
-        </a>
-      </div>
+// ==========================================
+// HERO BANNER CAROUSEL
+// ==========================================
+function initHeroCarousel() {
+  const slidesContainer = document.getElementById("hero-slides");
+  const dotsContainer = document.getElementById("hero-dots");
+  if (!slidesContainer || !dotsContainer) return;
 
-      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-        <a href="#" onclick="resetHome(event)" class="hover:text-violet-400 transition">Home</a>
-        <a href="#catalog-section" class="hover:text-violet-400 transition">Shop</a>
-        <button onclick="toggleCategoryModal(true)" class="hover:text-violet-400 transition">Categories</button>
-        <button onclick="togglePolicyModal(true)" class="hover:text-violet-400 transition">Refund Policy</button>
-      </nav>
+  const totalSlides = slidesContainer.children.length;
+  dotsContainer.innerHTML = "";
 
-      <div class="flex items-center gap-4">
-        <button onclick="toggleSearchBar()" aria-label="Search" class="p-1 text-slate-200 hover:text-violet-400 flex items-center gap-1.5 text-sm">
-          <span class="hidden sm:inline text-slate-400">Search</span>
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="7" />
-            <path stroke-linecap="round" d="M20 20l-3.5-3.5" />
-          </svg>
-        </button>
+  for (let i = 0; i < totalSlides; i++) {
+    const dot = document.createElement("button");
+    dot.setAttribute("aria-label", `Slide ${i + 1}`);
+    dot.className = `h-2 rounded-full transition-all ${i === 0 ? "w-6 bg-violet-500" : "w-2 bg-white/40"}`;
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
 
-        <a id="header-wa-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Support" class="w-7 h-7 rounded-full bg-[#25D366] text-white flex items-center justify-center shadow-md shadow-emerald-500/20 hover:opacity-90">
-          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
-            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824z"/>
-          </svg>
-        </a>
+  startSlideTimer();
+}
 
-        <button onclick="toggleCart(true)" aria-label="Cart" class="relative p-1 text-slate-100 hover:text-violet-400 flex items-center gap-1.5 text-sm">
-          <span class="hidden sm:inline text-slate-400">Cart</span>
-          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0020 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-          </svg>
-          <span id="cart-count" class="absolute -top-1 -right-1.5 bg-violet-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">0</span>
-        </button>
-      </div>
-    </div>
+function goToSlide(index) {
+  const slidesContainer = document.getElementById("hero-slides");
+  const dotsContainer = document.getElementById("hero-dots");
+  if (!slidesContainer) return;
 
-    <div id="search-bar-box" class="hidden border-t border-slate-800 bg-[#111827] px-4 sm:px-8 py-2.5">
-      <div class="max-w-3xl mx-auto flex items-center gap-2">
-        <input 
-          type="text" 
-          id="search-input" 
-          placeholder="Search Netflix, Prime, SonyLIV, Combo..." 
-          class="w-full px-3.5 py-2 text-sm bg-[#0B0F19] text-white placeholder-slate-400 border border-slate-700 rounded-lg focus:outline-none focus:border-violet-500"
-        />
-        <button onclick="clearSearch()" class="text-xs text-slate-400 hover:text-white px-2 py-1">Clear</button>
-      </div>
-    </div>
-  </header>
+  const totalSlides = slidesContainer.children.length;
+  currentSlide = (index + totalSlides) % totalSlides;
+  slidesContainer.style.transform = `translateX(-${currentSlide * 100}%)`;
 
-  <!-- HERO BANNER CAROUSEL -->
-  <section class="relative w-full overflow-hidden bg-[#0F1626] border-b border-slate-800">
-    <div id="hero-slides" class="flex transition-transform duration-500 ease-out">
-      
-      <!-- Banner 1 (Round Logo + Dark Frosted Glass Overlay) -->
-      <div class="w-full flex-shrink-0 relative h-[400px] sm:h-[470px] md:h-[520px] flex flex-col items-center justify-center text-center px-4 sm:px-6 overflow-hidden bg-[#0B0F19]">
-        <img src="Banner1.jpeg" alt="Background" class="absolute inset-0 w-full h-full object-cover opacity-95" />
-        <div class="absolute inset-0 bg-gradient-to-t from-[#0B0F19] via-black/45 to-black/30"></div>
-        
-        <div class="relative z-10 flex flex-col items-center max-w-lg bg-black/50 backdrop-blur-md border border-white/15 rounded-2xl px-6 py-6 sm:px-8 sm:py-7 shadow-2xl">
-          <img 
-            src="logo.png" 
-            alt="Premiumsell Logo" 
-            onerror="this.style.display='none'; document.getElementById('fallback-logo').style.display='flex';"
-            class="w-20 h-20 rounded-full object-cover shadow-lg border-2 border-violet-400/50 mb-3 bg-[#131A2A]"
-          />
-          <div id="fallback-logo" style="display:none;" class="w-20 h-20 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-extrabold text-3xl items-center justify-center shadow-lg border-2 border-white/25 mb-3">
-            S
+  if (dotsContainer) {
+    Array.from(dotsContainer.children).forEach((dot, idx) => {
+      dot.className = `h-2 rounded-full transition-all ${idx === currentSlide ? "w-6 bg-violet-500" : "w-2 bg-white/40"}`;
+    });
+  }
+  startSlideTimer();
+}
+
+function nextSlide() { goToSlide(currentSlide + 1); }
+function prevSlide() { goToSlide(currentSlide - 1); }
+
+function startSlideTimer() {
+  if (slideInterval) clearInterval(slideInterval);
+  slideInterval = setInterval(() => { goToSlide(currentSlide + 1); }, 4500);
+}
+
+// ==========================================
+// CATEGORIES & SEARCH
+// ==========================================
+function populateCategories() {
+  const uniqueCats = [...new Set(products.map((p) => p.category).filter(Boolean))];
+  const modalList = document.getElementById("category-modal-list");
+  const drawerList = document.getElementById("drawer-categories");
+
+  const allItemHtml = (isModal) => `
+    <button onclick="selectCategory('All'); ${isModal ? "toggleCategoryModal(false)" : "toggleMenu(false)"}"
+      class="w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-between transition ${
+        activeCategory === "All" ? "bg-violet-600/20 text-violet-300 border border-violet-500/40" : "hover:bg-slate-800 text-slate-200"
+      }">
+      <span>All Subscriptions</span>
+      <span class="text-xs text-slate-400">${products.length}</span>
+    </button>
+  `;
+
+  const catItemsHtml = (isModal) =>
+    uniqueCats
+      .map((cat) => {
+        const count = products.filter((p) => p.category === cat).length;
+        const active = activeCategory === cat;
+        return `
+          <button onclick="selectCategory('${cat.replace(/'/g, "\\'")}'); ${isModal ? "toggleCategoryModal(false)" : "toggleMenu(false)"}"
+            class="w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between transition ${
+              active ? "bg-violet-600/20 text-violet-300 border border-violet-500/40" : "hover:bg-slate-800 text-slate-200"
+            }">
+            <span>${cat}</span>
+            <span class="text-xs text-slate-400">${count}</span>
+          </button>
+        `;
+      })
+      .join("");
+
+  if (modalList) modalList.innerHTML = allItemHtml(true) + catItemsHtml(true);
+  if (drawerList) drawerList.innerHTML = catItemsHtml(false);
+}
+
+function selectCategory(cat) {
+  activeCategory = cat;
+  const titleEl = document.getElementById("active-category-title");
+  if (titleEl) {
+    titleEl.textContent = cat === "All" ? "ALL SUBSCRIPTIONS" : cat.toUpperCase();
+  }
+  populateCategories();
+  renderProducts();
+}
+
+function resetHome(e) {
+  if (e) e.preventDefault();
+  activeCategory = "All";
+  searchQuery = "";
+  const searchInput = document.getElementById("search-input");
+  if (searchInput) searchInput.value = "";
+  selectCategory("All");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function toggleSearchBar() {
+  const box = document.getElementById("search-bar-box");
+  const input = document.getElementById("search-input");
+  if (!box) return;
+  box.classList.toggle("hidden");
+  if (!box.classList.contains("hidden") && input) input.focus();
+}
+
+function clearSearch() {
+  searchQuery = "";
+  const input = document.getElementById("search-input");
+  if (input) input.value = "";
+  renderProducts();
+}
+
+// ==========================================
+// RENDER PRODUCT GRID
+// ==========================================
+function renderProducts() {
+  const grid = document.getElementById("product-grid");
+  const countLabel = document.getElementById("product-count-label");
+  if (!grid) return;
+
+  const filtered = products.filter((p) => {
+    const matchesCat = activeCategory === "All" || p.category === activeCategory;
+    const matchesSearch =
+      !searchQuery ||
+      p.name.toLowerCase().includes(searchQuery) ||
+      (p.category && p.category.toLowerCase().includes(searchQuery));
+    return matchesCat && matchesSearch;
+  });
+
+  if (countLabel) {
+    countLabel.textContent = `${filtered.length} ${filtered.length === 1 ? "item" : "items"}`;
+  }
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<p class="col-span-full text-center text-sm text-slate-400 py-12">No subscriptions found.</p>`;
+    return;
+  }
+
+  grid.innerHTML = filtered
+    .map((product) => {
+      const baseVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
+      const displayPrice = baseVariant ? baseVariant.price : product.price;
+      const displayMrp = baseVariant ? baseVariant.mrp : product.mrp;
+      const discount = displayMrp > displayPrice ? Math.round(((displayMrp - displayPrice) / displayMrp) * 100) : 0;
+      const outOfStock = product.inStock === false;
+
+      return `
+        <div onclick="openProductModal('${product.id}')" class="group bg-[#131A2A] border border-slate-800 hover:border-violet-500/60 rounded-xl overflow-hidden flex flex-col cursor-pointer transition shadow-md">
+          <div class="relative aspect-square bg-[#0F1626] overflow-hidden">
+            <img src="${product.image}" alt="${product.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300 ${outOfStock ? "opacity-40" : ""}" />
+            ${
+              discount > 0
+                ? `<span class="absolute top-2 left-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">${discount}% OFF</span>`
+                : ""
+            }
+            ${
+              outOfStock
+                ? `<span class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-xs font-bold uppercase tracking-wider">Out of Stock</span>`
+                : ""
+            }
           </div>
 
-          <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-white uppercase">Premiumsell</h1>
-          <p class="text-xs sm:text-sm text-slate-200 font-normal mt-2.5 leading-relaxed">
-            Buy Subscriptions, at the Best Prices 🎉! Find and purchase popular OTT subscriptions like Amazon Prime Video, Sony Liv, Zee5, and more. Enjoy instant activation!
-          </p>
-          <a href="#catalog-section" class="mt-5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold px-8 py-2.5 rounded-full shadow-lg shadow-violet-600/30 transition">
-            Shop Now
-          </a>
+          <div class="p-3 flex-1 flex flex-col justify-between">
+            <div>
+              <h4 class="text-xs sm:text-sm font-bold text-slate-100 line-clamp-2 leading-snug">${product.name}</h4>
+              <div class="mt-2 flex items-baseline gap-1.5 flex-wrap">
+                <span class="text-sm sm:text-base font-extrabold text-white">${CONFIG.currency}${displayPrice}</span>
+                ${
+                  displayMrp > displayPrice
+                    ? `<span class="text-xs text-slate-400 line-through">${CONFIG.currency}${displayMrp}</span>`
+                    : ""
+                }
+              </div>
+            </div>
+
+            <button
+              onclick="event.stopPropagation(); openProductModal('${product.id}')"
+              ${outOfStock ? "disabled" : ""}
+              class="mt-3 w-full py-2 rounded-lg text-xs font-bold transition ${
+                outOfStock
+                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  : "bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/40"
+              }"
+            >
+              ${outOfStock ? "Sold Out" : product.variants && product.variants.length > 1 ? "Select Plan" : "View Plan"}
+            </button>
+          </div>
         </div>
-      </div>
+      `;
+    })
+    .join("");
+}
 
-      <!-- Banner 2 (100% Uncropped) -->
-      <div class="w-full flex-shrink-0 h-[400px] sm:h-[470px] md:h-[520px] bg-[#0F1626] flex items-center justify-center">
-        <a href="#catalog-section" class="w-full h-full block">
-          <img src="Banner2.jpg" alt="Offer Banner 2" class="w-full h-full object-contain mx-auto" />
-        </a>
-      </div>
+// ==========================================
+// PRODUCT DETAIL MODAL
+// ==========================================
+function openProductModal(productId) {
+  const product = products.find((p) => p.id === productId);
+  if (!product) return;
 
-      <!-- Banner 3 (100% Uncropped) -->
-      <div class="w-full flex-shrink-0 h-[400px] sm:h-[470px] md:h-[520px] bg-[#0F1626] flex items-center justify-center">
-        <a href="#catalog-section" class="w-full h-full block">
-          <img src="Banner3.jpg" alt="Offer Banner 3" class="w-full h-full object-contain mx-auto" />
-        </a>
-      </div>
+  selectedProduct = product;
+  selectedVariantIndex = 0;
+  showAllVariants = false;
 
-    </div>
+  renderProductModalContent();
 
-    <button onclick="prevSlide()" aria-label="Previous Slide" class="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-violet-600 text-white border border-white/15 flex items-center justify-center transition">
-      ❮
-    </button>
-    <button onclick="nextSlide()" aria-label="Next Slide" class="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/50 hover:bg-violet-600 text-white border border-white/15 flex items-center justify-center transition">
-      ❯
-    </button>
+  const modal = document.getElementById("product-modal");
+  if (modal) {
+    modal.classList.remove("hidden");
+    modal.scrollTop = 0;
+    document.body.style.overflow = "hidden";
+  }
+}
 
-    <div id="hero-dots" class="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5"></div>
-  </section>
+function closeProductModal() {
+  const modal = document.getElementById("product-modal");
+  if (modal) modal.classList.add("hidden");
+  document.body.style.overflow = "";
+}
 
-  <!-- CATEGORIES & PRODUCT GRID -->
-  <main id="catalog-section" class="w-full max-w-7xl mx-auto px-4 sm:px-8 pt-8">
-    <div class="text-center mb-6">
-      <h2 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Categories</h2>
-    </div>
+function selectVariant(index) {
+  selectedVariantIndex = index;
+  renderProductModalContent();
+}
 
-    <div class="flex items-center justify-between mb-4">
-      <h3 id="active-category-title" class="text-xs sm:text-sm font-bold uppercase tracking-wider text-violet-400">
-        ALL SUBSCRIPTIONS
-      </h3>
-      <span id="product-count-label" class="text-xs text-slate-400"></span>
-    </div>
+function toggleVariantsExpand() {
+  showAllVariants = !showAllVariants;
+  renderProductModalContent();
+}
 
-    <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
-  </main>
+function renderProductModalContent() {
+  const container = document.getElementById("product-modal-content");
+  if (!container || !selectedProduct) return;
 
-  <!-- FULL-WIDTH FOOTER (With Round Logo & Return/Refund Policy) -->
-  <footer class="w-full bg-[#0F1626] border-t border-slate-800 mt-16 py-8 px-4 sm:px-8 text-slate-300">
-    <div class="max-w-7xl mx-auto">
-      <div class="flex items-center gap-3 mb-4">
-        <img 
-          src="logo.png" 
-          alt="Premiumsell" 
-          onerror="this.style.display='none'; document.getElementById('footer-fallback-logo').style.display='flex';"
-          class="w-11 h-11 rounded-full object-cover border border-violet-400/40 shadow-md"
-        />
-        <div id="footer-fallback-logo" style="display:none;" class="w-11 h-11 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-extrabold text-xl items-center justify-center shadow-md">
-          S
-        </div>
-        <span class="text-lg font-bold text-white">Premiumsell</span>
-      </div>
-      <h4 class="text-sm font-bold text-white mb-1">About Us</h4>
-      <p class="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-2xl">
-        Buy Subscriptions, at the Best Prices 🎉! Find and purchase popular OTT subscriptions like Amazon Prime Video, Sony Liv, Zee5, and more. Enjoy instant support and fast activation.
-      </p>
-      <div class="mt-6 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-400">
-        <div class="flex items-center gap-5">
-          <a href="#" onclick="resetHome(event)" class="flex items-center gap-1.5 font-medium text-slate-300 hover:text-violet-400">
-            <span>⌂</span> Home
-          </a>
-          <button onclick="togglePolicyModal(true)" class="font-medium text-slate-300 hover:text-violet-400 underline underline-offset-4">
-            Return & Refund Policy
-          </button>
-        </div>
-        <span class="text-slate-500">© 2026 Premiumsell</span>
-      </div>
-    </div>
-  </footer>
+  const variants = selectedProduct.variants || [];
+  const hasVariants = variants.length > 0;
+  const activeVariant = hasVariants ? variants[selectedVariantIndex] : null;
 
-  <!-- FLOATING BOTTOM "ALL CATEGORIES" PILL -->
-  <button 
-    onclick="toggleCategoryModal(true)"
-    class="fixed bottom-5 left-1/2 -translate-x-1/2 z-20 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-semibold px-5 py-2.5 rounded-full shadow-lg shadow-violet-600/30 border border-white/15 flex items-center gap-2 transition"
-  >
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-      <rect x="3" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-      <rect x="14" y="14" width="7" height="7" rx="1" />
-    </svg>
-    <span>All Categories</span>
-  </button>
+  const price = activeVariant ? activeVariant.price : selectedProduct.price;
+  const mrp = activeVariant ? activeVariant.mrp : selectedProduct.mrp;
+  const discount = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
+  const outOfStock = selectedProduct.inStock === false;
 
-  <!-- CATEGORY SELECTOR POPUP MODAL -->
-  <div id="category-modal" class="fixed inset-0 z-50 hidden">
-    <div onclick="toggleCategoryModal(false)" class="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
-    <div class="absolute bottom-0 left-0 right-0 sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-md w-full bg-[#131A2A] border border-slate-800 rounded-t-2xl sm:rounded-2xl p-5 shadow-2xl">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-        <h3 class="font-bold text-base text-white">Select Category</h3>
-        <button onclick="toggleCategoryModal(false)" class="text-slate-400 hover:text-white text-2xl leading-none">×</button>
-      </div>
-      <div id="category-modal-list" class="mt-3 space-y-1.5 max-h-72 overflow-y-auto text-slate-200"></div>
-    </div>
-  </div>
+  const visibleVariants = showAllVariants ? variants : variants.slice(0, 3);
+  const hasMoreThanThree = variants.length > 3;
 
-  <!-- RETURN & REFUND POLICY POPUP MODAL -->
-  <div id="policy-modal" class="fixed inset-0 z-50 hidden">
-    <div onclick="togglePolicyModal(false)" class="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
-    <div class="absolute bottom-0 left-0 right-0 sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-lg w-full bg-[#131A2A] border border-slate-800 rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-        <h3 class="font-extrabold text-lg text-white">Return And Refund Policy</h3>
-        <button onclick="togglePolicyModal(false)" class="text-slate-400 hover:text-white text-2xl leading-none">×</button>
-      </div>
-      <div class="mt-4 space-y-4 text-sm text-slate-200 leading-relaxed">
-        <div class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 font-semibold">
-          All the products are fully GUARANTEED till their last day of duration.
-        </div>
-        <p class="text-slate-300">
-          If any subscription ends before the due date, then we are responsible for providing you the full replacement amount and refunding the money for remaining days after a fair calculation.
+  const variantsHtml = hasVariants
+    ? `
+      <div class="py-4 border-y border-slate-800">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3">
+          SELECT :: <span class="text-violet-400">${activeVariant.label}</span>
         </p>
-      </div>
-      <button onclick="togglePolicyModal(false)" class="mt-6 w-full py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold transition">
-        Close
-      </button>
-    </div>
-  </div>
 
-  <!-- FULL-SCREEN PRODUCT DETAIL MODAL -->
-  <div id="product-modal" class="fixed inset-0 z-50 bg-[#0B0F19] text-slate-100 overflow-y-auto hidden">
-    <div class="sticky top-0 z-20 bg-[#0B0F19]/95 backdrop-blur-md border-b border-slate-800 w-full">
-      <div class="max-w-7xl mx-auto px-4 sm:px-8 h-14 sm:h-16 flex items-center justify-between">
-        <button onclick="closeProductModal()" class="flex items-center gap-2 text-sm font-bold text-slate-200 hover:text-violet-400">
-          <span class="text-lg">←</span> Back to Store
-        </button>
-        <button onclick="closeProductModal(); toggleCart(true);" class="relative p-1.5 text-slate-100 hover:text-violet-400 flex items-center gap-1.5 text-sm">
-          <span class="hidden sm:inline text-slate-400">Cart</span>
-          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0020 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
-          </svg>
-          <span id="modal-cart-count" class="absolute -top-0.5 -right-1 bg-violet-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">0</span>
-        </button>
-      </div>
-    </div>
-
-    <div id="product-modal-content" class="max-w-7xl mx-auto px-4 sm:px-8 pt-6 pb-28"></div>
-
-    <div class="fixed bottom-0 left-0 right-0 z-30 bg-[#131A2A]/95 backdrop-blur-md border-t border-slate-800 p-3">
-      <div class="max-w-xl mx-auto grid grid-cols-2 gap-3">
-        <button 
-          id="modal-add-btn"
-          class="w-full py-3 rounded-lg border border-slate-700 bg-[#1E293B] text-white font-semibold text-sm hover:bg-slate-700 transition"
-        >
-          Add to Cart
-        </button>
-        <button 
-          id="modal-buy-btn"
-          class="w-full py-3 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm transition shadow-lg shadow-violet-600/30"
-        >
-          Buy Now
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- SLIDE-OUT HAMBURGER MENU DRAWER -->
-  <div id="menu-overlay" onclick="toggleMenu(false)" class="fixed inset-0 bg-black/75 z-40 hidden"></div>
-  <aside id="menu-drawer" class="fixed top-0 left-0 h-full w-72 bg-[#131A2A] border-r border-slate-800 z-50 shadow-2xl transform -translate-x-full transition-transform duration-300 flex flex-col">
-    <div class="px-5 h-14 border-b border-slate-800 flex items-center justify-between">
-      <span class="font-bold text-base text-white">Premiumsell</span>
-      <button onclick="toggleMenu(false)" class="text-slate-400 hover:text-white text-2xl leading-none">×</button>
-    </div>
-    <div class="p-4 space-y-2 flex-1 overflow-y-auto text-sm text-slate-200">
-      <button onclick="selectCategory('All'); toggleMenu(false);" class="w-full text-left px-3 py-2.5 rounded-lg font-medium hover:bg-slate-800 hover:text-violet-400">
-        All Subscriptions
-      </button>
-      <div id="drawer-categories" class="space-y-1"></div>
-      <hr class="my-3 border-slate-800" />
-      <button onclick="toggleMenu(false); togglePolicyModal(true);" class="w-full text-left px-3 py-2.5 rounded-lg font-medium text-slate-300 hover:bg-slate-800 hover:text-violet-400">
-        Return & Refund Policy
-      </button>
-      <a id="drawer-wa-link" href="#" target="_blank" class="block px-3 py-2.5 rounded-lg font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
-        WhatsApp Support
-      </a>
-    </div>
-  </aside>
-
-  <!-- SLIDE-OVER SHOPPING CART & AUTO-VERIFIED UPI DRAWER -->
-  <div id="cart-overlay" onclick="toggleCart(false)" class="fixed inset-0 bg-black/75 z-40 hidden"></div>
-  <aside id="cart-drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-[#131A2A] border-l border-slate-800 z-50 shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
-    <div class="px-5 h-14 border-b border-slate-800 flex items-center justify-between">
-      <h2 id="cart-drawer-title" class="text-base font-bold text-white">Your Cart</h2>
-      <button onclick="toggleCart(false)" class="text-slate-400 hover:text-white text-2xl leading-none">×</button>
-    </div>
-
-    <!-- STEP 1: CART ITEMS & 2-FIELD CUSTOMER DETAILS -->
-    <div id="cart-step-1" class="flex-1 flex flex-col overflow-hidden">
-      <div id="cart-items" class="flex-1 overflow-y-auto p-5 space-y-4"></div>
-
-      <div id="cart-footer" class="border-t border-slate-800 p-5 bg-[#0F1626] space-y-3 hidden">
-        <div class="flex justify-between items-center text-base font-bold text-white">
-          <span>Total Payable:</span>
-          <span id="cart-total" class="text-violet-400">₹0</span>
+        <div class="flex flex-col gap-2.5">
+          ${visibleVariants
+            .map((v, idx) => {
+              const isSelected = idx === selectedVariantIndex;
+              return `
+                <button
+                  type="button"
+                  onclick="selectVariant(${idx})"
+                  class="w-full text-left px-4 py-3.5 rounded-lg text-xs sm:text-sm transition flex items-center justify-between gap-3 focus:outline-none ${
+                    isSelected
+                      ? "bg-[#312E81]/60 border-2 border-white text-white font-bold shadow-[0_0_16px_rgba(139,92,246,0.35)]"
+                      : "bg-[#131A2A] border border-slate-700 text-slate-200 font-medium hover:border-slate-500"
+                  }"
+                >
+                  <span class="truncate uppercase">${v.label}</span>
+                  <span class="flex-shrink-0 font-bold text-white">${CONFIG.currency}${v.price}</span>
+                </button>
+              `;
+            })
+            .join("")}
         </div>
 
-        <div class="space-y-2">
-          <input type="text" id="cust-name" placeholder="Your Name *" class="w-full px-3 py-2.5 text-sm bg-[#131A2A] text-white placeholder-slate-400 border border-slate-700 rounded-lg focus:outline-none focus:border-violet-500" />
-          <input type="tel" id="cust-phone" placeholder="WhatsApp Number (for delivery) *" class="w-full px-3 py-2.5 text-sm bg-[#131A2A] text-white placeholder-slate-400 border border-slate-700 rounded-lg focus:outline-none focus:border-violet-500" />
+        ${
+          hasMoreThanThree
+            ? `
+              <button
+                type="button"
+                onclick="toggleVariantsExpand()"
+                class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-400 hover:text-violet-300 transition"
+              >
+                <span>${showAllVariants ? "− View less" : "+ View more"}</span>
+              </button>
+            `
+            : ""
+        }
+      </div>
+    `
+    : "";
+
+  container.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10 items-start">
+      
+      <div class="bg-[#131A2A] border border-slate-800 rounded-2xl p-3 sm:p-5 flex items-center justify-center md:sticky md:top-24">
+        <img src="${selectedProduct.image}" alt="${selectedProduct.name}" class="w-full h-auto max-h-[540px] object-contain rounded-xl" />
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <span class="text-xs font-semibold uppercase tracking-wider text-violet-400">${selectedProduct.category || "Subscription"}</span>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-white mt-1">${selectedProduct.name}</h1>
+
+          <div class="mt-2.5 flex items-center gap-3">
+            <span class="text-2xl sm:text-3xl font-extrabold text-white">${CONFIG.currency}${price}</span>
+            ${mrp > price ? `<span class="text-base text-slate-400 line-through">${CONFIG.currency}${mrp}</span>` : ""}
+            ${discount > 0 ? `<span class="bg-emerald-600 text-white text-xs font-bold px-2.5 py-0.5 rounded">${discount}% OFF</span>` : ""}
+          </div>
         </div>
 
-        <button 
-          onclick="proceedToUpiPayment()" 
-          class="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-lg text-sm transition shadow-lg shadow-violet-600/30"
-        >
-          Proceed to Pay (UPI / QR) →
-        </button>
-      </div>
-    </div>
+        ${variantsHtml}
 
-    <!-- STEP 2: UNIQUE PAISA QR CODE + AUTO GPAY VERIFICATION + UTR BACKUP -->
-    <div id="cart-step-2" class="flex-1 overflow-y-auto p-5 space-y-4 hidden">
-      <button onclick="backToCartStep1()" class="text-xs font-semibold text-violet-400 hover:text-violet-300 flex items-center gap-1">
-        ← Edit Cart / Details
-      </button>
-
-      <div class="bg-[#0F1626] border border-slate-800 rounded-2xl p-4 text-center space-y-3">
-        <span class="inline-block px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold">
-          Google Pay Verified Merchant
-        </span>
+        ${
+          selectedProduct.shortRule
+            ? `<div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs sm:text-sm leading-relaxed">${selectedProduct.shortRule}</div>`
+            : ""
+        }
 
         <div>
-          <p class="text-xs text-slate-400">Pay Exact Unique Amount (for Auto-Verify)</p>
-          <p id="upi-pay-amount" class="text-3xl font-extrabold text-white mt-0.5">₹0.00</p>
+          <h3 class="text-sm sm:text-base font-bold text-white mb-2">Product Description</h3>
+          <div class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">${selectedProduct.description || ""}</div>
         </div>
 
-        <div class="bg-white p-3 rounded-xl inline-block mx-auto shadow-lg">
-          <div id="upi-qrcode"></div>
-        </div>
-
-        <p class="text-[11px] text-slate-400">Scan with GPay, PhonePe, Paytm or any UPI App</p>
-
-        <a 
-          id="upi-direct-link" 
-          href="#" 
-          class="block w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg transition"
-        >
-          Pay Now via GPay / UPI App
-        </a>
-
-        <div class="flex items-center justify-between bg-[#131A2A] border border-slate-700 rounded-lg px-3 py-2 text-xs">
-          <span class="text-slate-300 font-mono">6284854882@okbizaxis</span>
-          <button onclick="copyMerchantUpi()" id="copy-upi-btn" class="text-violet-400 hover:text-violet-300 font-bold">
-            Copy ID
-          </button>
-        </div>
+        ${
+          selectedProduct.moreDetails
+            ? `<div class="pt-3 border-t border-slate-800 text-xs sm:text-sm text-slate-400">${selectedProduct.moreDetails}</div>`
+            : ""
+        }
       </div>
 
-      <!-- LIVE AUTO-VERIFICATION STATUS INDICATOR -->
-      <div id="auto-verify-banner" class="p-3.5 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center gap-3">
-        <span class="relative flex h-3 w-3 flex-shrink-0">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-3 w-3 bg-violet-500"></span>
-        </span>
-        <div class="text-left">
-          <p id="auto-verify-title" class="text-xs font-bold text-violet-200">Waiting for Payment Confirmation...</p>
-          <p id="auto-verify-sub" class="text-[11px] text-slate-400">Pay karne ke 5-10 sec baad automatically verify ho jayega.</p>
-        </div>
-      </div>
-
-      <!-- BACKUP 12-DIGIT UTR INPUT & ORDER BUTTON -->
-      <div class="space-y-2.5 pt-1 border-t border-slate-800">
-        <div class="text-left">
-          <label for="payment-utr" class="block text-[11px] font-semibold text-slate-300 mb-1">
-            Backup: Enter 12-Digit UTR / Ref No. (If not auto-verified)
-          </label>
-          <input 
-            type="text" 
-            id="payment-utr" 
-            maxlength="12"
-            inputmode="numeric"
-            oninput="validatePaymentUnlock()"
-            placeholder="e.g. 631849201547" 
-            class="w-full px-3 py-2.5 text-sm bg-[#0F1626] text-white placeholder-slate-500 border border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500 font-mono tracking-wider" 
-          />
-          <p id="utr-helper-text" class="text-[11px] text-slate-400 mt-1">
-            Auto-verify hone par ya 12-digit UTR dalne par button unlock hoga.
-          </p>
-        </div>
-
-        <button 
-          id="confirm-paid-btn"
-          onclick="confirmPaidWhatsApp()" 
-          disabled
-          class="w-full bg-slate-700 text-slate-400 cursor-not-allowed font-bold py-3.5 rounded-xl text-sm transition flex items-center justify-center gap-2"
-        >
-          <span>Complete Payment to Unlock Order</span>
-        </button>
-      </div>
     </div>
-  </aside>
+  `;
 
-  <script src="app.js?v=6"></script>
-</body>
-</html>
+  const addBtn = document.getElementById("modal-add-btn");
+  const buyBtn = document.getElementById("modal-buy-btn");
+
+  if (addBtn && buyBtn) {
+    addBtn.disabled = outOfStock;
+    buyBtn.disabled = outOfStock;
+
+    addBtn.onclick = () => {
+      addToCart(selectedProduct, activeVariant);
+      closeProductModal();
+      toggleCart(true);
+    };
+
+    buyBtn.onclick = () => {
+      addToCart(selectedProduct, activeVariant);
+      closeProductModal();
+      toggleCart(true);
+    };
+  }
+}
+
+// ==========================================
+// SHOPPING CART & 5-MINUTE COOLDOWN UTR FLOW
+// ==========================================
+function addToCart(product, variant) {
+  const variantLabel = variant ? variant.label : "Standard Plan";
+  const price = variant ? variant.price : product.price;
+  const cartKey = `${product.id}__${variantLabel}`;
+
+  const existing = cart.find((item) => item.key === cartKey);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    cart.push({
+      key: cartKey,
+      id: product.id,
+      name: product.name,
+      variant: variantLabel,
+      price: price,
+      image: product.image,
+      qty: 1
+    });
+  }
+
+  saveCart();
+  updateCartUI();
+}
+
+function updateCartQty(key, delta) {
+  const index = cart.findIndex((item) => item.key === key);
+  if (index === -1) return;
+
+  cart[index].qty += delta;
+  if (cart[index].qty <= 0) cart.splice(index, 1);
+
+  saveCart();
+  updateCartUI();
+}
+
+function saveCart() {
+  localStorage.setItem("premiumsell_cart", JSON.stringify(cart));
+}
+
+function updateCartUI() {
+  const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
+  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+
+  const badge1 = document.getElementById("cart-count");
+  const badge2 = document.getElementById("modal-cart-count");
+  if (badge1) badge1.textContent = totalQty;
+  if (badge2) badge2.textContent = totalQty;
+
+  const itemsContainer = document.getElementById("cart-items");
+  const footer = document.getElementById("cart-footer");
+  const totalEl = document.getElementById("cart-total");
+
+  if (!itemsContainer) return;
+
+  if (cart.length === 0) {
+    itemsContainer.innerHTML = `
+      <div class="text-center py-16">
+        <p class="text-slate-400 text-sm">Your cart is empty.</p>
+        <button onclick="toggleCart(false)" class="mt-4 px-5 py-2 rounded-lg bg-violet-600 text-white text-xs font-bold">Browse Plans</button>
+      </div>
+    `;
+    if (footer) footer.classList.add("hidden");
+    return;
+  }
+
+  if (footer) footer.classList.remove("hidden");
+  if (totalEl) totalEl.textContent = `${CONFIG.currency}${totalAmount}`;
+
+  itemsContainer.innerHTML = cart
+    .map(
+      (item) => `
+      <div class="flex gap-3 bg-[#0F1626] border border-slate-800 p-3 rounded-xl">
+        <img src="${item.image}" alt="${item.name}" class="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+        <div class="flex-1 min-w-0">
+          <h4 class="text-xs sm:text-sm font-bold text-white truncate">${item.name}</h4>
+          <p class="text-[11px] text-violet-400 font-medium truncate mt-0.5">${item.variant}</p>
+          <div class="mt-2 flex items-center justify-between">
+            <span class="text-sm font-extrabold text-white">${CONFIG.currency}${item.price * item.qty}</span>
+            <div class="flex items-center gap-2 bg-[#131A2A] border border-slate-700 rounded-lg px-2 py-0.5">
+              <button onclick="updateCartQty('${item.key.replace(/'/g, "\\'")}', -1)" class="text-slate-300 hover:text-white font-bold px-1">−</button>
+              <span class="text-xs font-bold text-white">${item.qty}</span>
+              <button onclick="updateCartQty('${item.key.replace(/'/g, "\\'")}', 1)" class="text-slate-300 hover:text-white font-bold px-1">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `
+    )
+    .join("");
+}
+
+function proceedToUpiPayment() {
+  const name = document.getElementById("cust-name")?.value.trim();
+  const phone = document.getElementById("cust-phone")?.value.trim();
+
+  if (!name || !phone) {
+    alert("Please enter your Name and WhatsApp Number.");
+    return;
+  }
+
+  if (cart.length === 0) return;
+
+  const baseTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  currentOrderAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
+
+  const note = `Order ${currentOrderAmount}`;
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(CONFIG.upiId)}&pn=${encodeURIComponent(CONFIG.merchantName)}&am=${currentOrderAmount}&cu=INR&tn=${encodeURIComponent(note)}`;
+
+  const amountEl = document.getElementById("upi-pay-amount");
+  const directLinkEl = document.getElementById("upi-direct-link");
+  const qrContainer = document.getElementById("upi-qrcode");
+  const titleEl = document.getElementById("cart-drawer-title");
+
+  if (amountEl) amountEl.textContent = `${CONFIG.currency}${currentOrderAmount}`;
+  if (titleEl) titleEl.textContent = "Complete Payment";
+
+  if (directLinkEl) {
+    directLinkEl.href = "#download-qr";
+    directLinkEl.removeAttribute("target");
+    directLinkEl.textContent = "📥 Download QR Code (Scan via Gallery)";
+    directLinkEl.onclick = (e) => {
+      e.preventDefault();
+      downloadPaymentQr(upiUrl);
+    };
+  }
+
+  if (qrContainer) {
+    qrContainer.innerHTML = "";
+    if (typeof QRCode !== "undefined") {
+      new QRCode(qrContainer, {
+        text: upiUrl,
+        width: 185,
+        height: 185,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } else {
+      qrContainer.innerHTML = `<img crossorigin="anonymous" src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(upiUrl)}" alt="UPI QR" class="w-44 h-44" />`;
+    }
+  }
+
+  // Clean up UTR label & helper text to remove old auto-verify text
+  const utrInput = document.getElementById("payment-utr");
+  if (utrInput) {
+    utrInput.value = "";
+    const parent = utrInput.parentElement;
+    if (parent) {
+      const lbl = parent.querySelector("label");
+      if (lbl) lbl.textContent = "Enter 12-Digit UPI Transaction ID (UTR)";
+      const helpers = parent.querySelectorAll("p");
+      helpers.forEach((p) => {
+        if (p.textContent.toLowerCase().includes("auto-verify")) {
+          p.textContent = "Payment ke baad 12-digit UTR number daal kar order submit karein.";
+        }
+      });
+    }
+  }
+
+  validateUtrInput();
+
+  document.getElementById("cart-step-1")?.classList.add("hidden");
+  document.getElementById("cart-step-2")?.classList.remove("hidden");
+
+  // Start 5-minute (300 seconds) live countdown timer
+  startPaymentCountdown(300);
+}
+
+function startPaymentCountdown(totalSeconds = 300) {
+  stopPaymentCountdown();
+  const box = document.getElementById("auto-verify-box");
+  if (!box) return;
+
+  let remaining = totalSeconds;
+
+  const renderTimer = () => {
+    const mins = String(Math.floor(remaining / 60)).padStart(2, "0");
+    const secs = String(remaining % 60).padStart(2, "0");
+    const isUrgent = remaining <= 60;
+
+    if (remaining <= 0) {
+      stopPaymentCountdown();
+      box.className = "p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-between gap-3";
+      box.innerHTML = `
+        <div>
+          <p class="text-xs font-extrabold text-rose-400">⏳ Payment Window Expired</p>
+          <p class="text-[11px] text-slate-300 mt-0.5">Timer dobara chalu karke payment aur UTR submit karein.</p>
+        </div>
+        <button type="button" onclick="startPaymentCountdown(300)" class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex-shrink-0">
+          Restart 05:00
+        </button>
+      `;
+      return;
+    }
+
+    box.className = isUrgent
+      ? "p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-between gap-3"
+      : "p-3 rounded-xl bg-amber-500/10 border border-amber-500/35 flex items-center justify-between gap-3";
+
+    box.innerHTML = `
+      <div class="min-w-0">
+        <p class="text-xs font-extrabold ${isUrgent ? "text-rose-400" : "text-amber-300"}">
+          ⏳ Complete Payment Within 5 Minutes
+        </p>
+        <p class="text-[11px] text-slate-300 mt-0.5">
+          Jaldi ${CONFIG.currency}${currentOrderAmount} pay karke niche 12-digit UTR submit karein.
+        </p>
+      </div>
+      <div class="px-2.5 py-1.5 rounded-lg ${isUrgent ? "bg-rose-500/20 text-rose-300 border border-rose-500/40" : "bg-amber-500/20 text-amber-300 border border-amber-500/40"} font-mono text-sm font-extrabold flex-shrink-0">
+        ${mins}:${secs}
+      </div>
+    `;
+  };
+
+  renderTimer();
+  paymentTimerInterval = setInterval(() => {
+    remaining -= 1;
+    renderTimer();
+  }, 1000);
+}
+
+function stopPaymentCountdown() {
+  if (paymentTimerInterval) {
+    clearInterval(paymentTimerInterval);
+    paymentTimerInterval = null;
+  }
+}
+
+function downloadPaymentQr(upiUrl) {
+  const qrContainer = document.getElementById("upi-qrcode");
+  const existingCanvas = qrContainer ? qrContainer.querySelector("canvas") : null;
+  const existingImg = qrContainer ? qrContainer.querySelector("img") : null;
+
+  const triggerDownload = (dataUrl) => {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `Premiumsell-Pay-${currentOrderAmount}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  if (existingCanvas) {
+    const padded = document.createElement("canvas");
+    const pad = 24;
+    padded.width = existingCanvas.width + pad * 2;
+    padded.height = existingCanvas.height + pad * 2;
+    const ctx = padded.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, padded.width, padded.height);
+    ctx.drawImage(existingCanvas, pad, pad);
+    triggerDownload(padded.toDataURL("image/png"));
+    return;
+  }
+
+  if (existingImg && existingImg.src.startsWith("data:")) {
+    triggerDownload(existingImg.src);
+    return;
+  }
+
+  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&data=${encodeURIComponent(upiUrl)}`;
+  fetch(qrApiUrl)
+    .then((r) => r.blob())
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      triggerDownload(url);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    })
+    .catch(() => {
+      window.open(qrApiUrl, "_blank");
+    });
+}
+
+function isValidUtr(utr) {
+  if (!/^\d{12}$/.test(utr)) return false;
+  if (/^(\d)\1{11}$/.test(utr)) return false;
+  if (utr === "123456789012" || utr === "987654321098") return false;
+  return true;
+}
+
+function validateUtrInput() {
+  const utrInput = document.getElementById("payment-utr");
+  const btn = document.getElementById("confirm-paid-btn");
+  if (!utrInput || !btn) return;
+
+  utrInput.value = utrInput.value.replace(/\D/g, "");
+  const utr = utrInput.value;
+
+  if (isValidUtr(utr)) {
+    btn.disabled = false;
+    btn.className = "w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white cursor-pointer font-bold py-3.5 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2";
+    btn.innerHTML = `<span>Submit Order on WhatsApp →</span>`;
+  } else {
+    btn.disabled = true;
+    btn.className = "w-full bg-slate-700 text-slate-400 cursor-not-allowed font-bold py-3.5 rounded-xl text-sm transition flex items-center justify-center gap-2";
+    btn.innerHTML = `<span>Enter 12-Digit Transaction ID (UTR)</span>`;
+  }
+}
+
+function backToCartStep1() {
+  stopPaymentCountdown();
+  const titleEl = document.getElementById("cart-drawer-title");
+  if (titleEl) titleEl.textContent = "Your Cart";
+  document.getElementById("cart-step-2")?.classList.add("hidden");
+  document.getElementById("cart-step-1")?.classList.remove("hidden");
+}
+
+function copyMerchantUpi() {
+  navigator.clipboard.writeText(CONFIG.upiId).then(() => {
+    const btn = document.getElementById("copy-upi-btn");
+    if (btn) {
+      btn.textContent = "Copied!";
+      setTimeout(() => { btn.textContent = "Copy ID"; }, 2000);
+    }
+  });
+}
+
+function confirmPaidWhatsApp() {
+  const name = document.getElementById("cust-name")?.value.trim();
+  const phone = document.getElementById("cust-phone")?.value.trim();
+  const utr = document.getElementById("payment-utr")?.value.trim();
+
+  if (!isValidUtr(utr)) {
+    alert("Please enter a valid 12-digit UPI Transaction ID (UTR).");
+    return;
+  }
+
+  stopPaymentCountdown();
+
+  const itemsText = cart
+    .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
+    .join("\n");
+
+  let message = `*NEW PAID ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
+  message += `*Customer:* ${name}\n`;
+  message += `*WhatsApp:* ${phone}\n`;
+  message += `\n*Order Details:*\n${itemsText}\n\n`;
+  message += `*Amount Paid:* ${CONFIG.currency}${currentOrderAmount}\n`;
+  message += `*Transaction ID (UTR):* ${utr}\n\n`;
+  message += `Please verify my UTR and activate my subscription!`;
+
+  const waUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
+  window.open(waUrl, "_blank");
+}
+
+// ==========================================
+// DRAWERS & MODALS TOGGLES
+// ==========================================
+function toggleMenu(open) {
+  const overlay = document.getElementById("menu-overlay");
+  const drawer = document.getElementById("menu-drawer");
+  if (!overlay || !drawer) return;
+
+  if (open) {
+    overlay.classList.remove("hidden");
+    drawer.classList.remove("-translate-x-full");
+  } else {
+    overlay.classList.add("hidden");
+    drawer.classList.add("-translate-x-full");
+  }
+}
+
+function toggleCart(open) {
+  const overlay = document.getElementById("cart-overlay");
+  const drawer = document.getElementById("cart-drawer");
+  if (!overlay || !drawer) return;
+
+  if (open) {
+    backToCartStep1();
+    overlay.classList.remove("hidden");
+    drawer.classList.remove("translate-x-full");
+  } else {
+    stopPaymentCountdown();
+    overlay.classList.add("hidden");
+    drawer.classList.add("translate-x-full");
+  }
+}
+
+function toggleCategoryModal(open) {
+  const modal = document.getElementById("category-modal");
+  if (!modal) return;
+  if (open) modal.classList.remove("hidden");
+  else modal.classList.add("hidden");
+}
+
+function togglePolicyModal(open) {
+  const modal = document.getElementById("policy-modal");
+  if (!modal) return;
+  if (open) modal.classList.remove("hidden");
+  else modal.classList.add("hidden");
+}
