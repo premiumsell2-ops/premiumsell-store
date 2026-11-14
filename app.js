@@ -5,6 +5,7 @@ const CONFIG = {
   storeName: "Premiumsell",
   whatsappNumber: "916284854882",
   gatewayPublicKey: "lq_sk_1c329e00ef342cdff1d9b6986624deee5cf131afbe9ea242",
+  merchantUpi: "6284854882@okbizaxis",
   currency: "₹"
 };
 
@@ -26,7 +27,6 @@ document.addEventListener("DOMContentLoaded", () => {
   initHeroCarousel();
   updateCartUI();
   loadProducts();
-  checkPaymentReturn();
 
   const searchInput = document.getElementById("search-input");
   if (searchInput) {
@@ -429,7 +429,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & PAYMENT GATEWAY (REDIRECT MODE)
+// SHOPPING CART & PAYMENT GATEWAY (POPUP + SAFE FALLBACK)
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -539,26 +539,14 @@ function proceedToUpiPayment() {
 
   if (cart.length === 0) return;
 
-  if (typeof LearningQuePay === "undefined") {
-    alert("Payment Gateway SDK is loading. Please wait 2 seconds and try again.");
-    return;
-  }
-
   const baseTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const totalAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
   const orderId = "PS-" + Date.now();
 
-  // Save pending order before full-page redirect so it restores when customer returns
-  localStorage.setItem(
-    "premiumsell_pending_order",
-    JSON.stringify({
-      orderId: orderId,
-      name: name,
-      phone: cleanPhone,
-      totalAmount: totalAmount,
-      items: cart
-    })
-  );
+  if (typeof LearningQuePay === "undefined") {
+    openBackupUpiScreen(totalAmount, name, cleanPhone, orderId);
+    return;
+  }
 
   LearningQuePay.checkout({
     key: CONFIG.gatewayPublicKey,
@@ -569,75 +557,82 @@ function proceedToUpiPayment() {
       email: "orders@premiumsell.in",
       phone: cleanPhone
     },
-    returnUrl: window.location.origin + "/?lq_return=1",
-    mode: "redirect",
+    returnUrl: window.location.origin + "/",
+    mode: "popup",
     onSuccess: function (res) {
-      handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone, cart);
+      handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone);
     },
     onFailure: function (err) {
       const msg = (err && (err.message || err.reason)) || "Payment was not completed. Please try again.";
       alert(msg);
     },
     onClose: function () {},
-    onError: function (err) {
-      const msg =
-        (err && (err.message || err.error)) ||
-        (typeof err === "string" ? err : JSON.stringify(err)) ||
-        "Payment error. Check Allowed Domains in dashboard.";
-      alert("Gateway Error: " + msg);
+    onError: function () {
+      openBackupUpiScreen(totalAmount, name, cleanPhone, orderId);
     }
   });
 }
 
-function checkPaymentReturn() {
-  const params = new URLSearchParams(window.location.search);
-  const isReturn =
-    params.has("lq_return") ||
-    params.has("order_id") ||
-    params.has("payment_id") ||
-    params.has("status");
+// Safe fallback if browser blocks popups or gateway network is unreachable
+function openBackupUpiScreen(totalAmount, name, cleanPhone, orderId) {
+  const itemsText = cart
+    .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
+    .join("\n");
 
-  if (!isReturn) return;
+  let message = `*NEW ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
+  message += `*Customer:* ${name}\n`;
+  message += `*WhatsApp:* ${cleanPhone}\n`;
+  message += `\n*Order Details:*\n${itemsText}\n\n`;
+  message += `*Total Payable:* ${CONFIG.currency}${totalAmount}\n`;
+  message += `*Order ID:* ${orderId}\n\n`;
+  message += `Hi, please share payment link / QR to activate my subscription.`;
 
-  const rawPending = localStorage.getItem("premiumsell_pending_order");
-  // Clean URL query string without reloading
-  window.history.replaceState({}, document.title, window.location.pathname);
+  const waOrderUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
 
-  if (!rawPending) return;
+  const titleEl = document.getElementById("cart-drawer-title");
+  const step1 = document.getElementById("cart-step-1");
+  const step2 = document.getElementById("cart-step-2");
 
-  const status = (params.get("status") || "").toLowerCase();
-  if (status === "failed" || status === "cancelled" || status === "failure") {
-    alert("Payment was cancelled or failed. Please try again.");
-    return;
-  }
+  if (titleEl) titleEl.textContent = "Complete Your Order";
+  if (step1) step1.classList.add("hidden");
+  if (step2) {
+    step2.classList.remove("hidden");
+    step2.innerHTML = `
+      <div class="bg-[#0F1626] border border-slate-800 rounded-2xl p-5 text-center space-y-3">
+        <p class="text-xs uppercase tracking-wider text-violet-400 font-bold">Instant Checkout</p>
+        <p class="text-3xl font-extrabold text-white">${CONFIG.currency}${totalAmount}</p>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Your browser blocked the payment popup window. Tap below to complete payment directly on WhatsApp or pay via UPI ID:
+        </p>
+        <div class="flex items-center justify-between bg-[#131A2A] border border-slate-700 rounded-xl px-3 py-2.5 text-xs">
+          <span class="font-mono text-slate-200 select-all">${CONFIG.merchantUpi}</span>
+          <button type="button" onclick="navigator.clipboard?.writeText('${CONFIG.merchantUpi}'); this.textContent='Copied!';" class="text-violet-400 font-bold">
+            Copy UPI
+          </button>
+        </div>
+      </div>
 
-  try {
-    const pending = JSON.parse(rawPending);
-    const returnedRef =
-      params.get("order_id") ||
-      params.get("payment_id") ||
-      params.get("transaction_id") ||
-      pending.orderId;
+      <a
+        href="${waOrderUrl}"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold py-4 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+      >
+        <span>Continue Order on WhatsApp →</span>
+      </a>
 
-    handleGatewayPaymentSuccess(
-      { order_id: returnedRef },
-      pending.orderId,
-      pending.totalAmount,
-      pending.name,
-      pending.phone,
-      pending.items || cart
-    );
-  } catch (e) {
-    console.error("Error restoring return order:", e);
+      <button type="button" onclick="backToCartStep1()" class="w-full py-2 text-xs text-slate-400 hover:text-white font-medium">
+        ← Back to Cart
+      </button>
+    `;
   }
 }
 
-function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone, orderItems) {
-  const itemsList = orderItems && orderItems.length > 0 ? orderItems : cart;
+function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone) {
   const gatewayRef =
     (res && (res.order_id || res.payment_id || res.transaction_id || res.id)) || orderId;
 
-  const itemsText = itemsList
+  const itemsText = cart
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
     .join("\n");
 
@@ -693,11 +688,12 @@ function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone
       </button>
     `;
   }
+
+  window.open(lastPaidWhatsAppUrl, "_blank");
 }
 
 function finishAndClearCart() {
   cart = [];
-  localStorage.removeItem("premiumsell_pending_order");
   saveCart();
   updateCartUI();
   backToCartStep1();
