@@ -428,7 +428,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & PAYMENT GATEWAY CHECKOUT
+// SHOPPING CART & PAYMENT GATEWAY (NEW TAB / POPUP)
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -531,8 +531,8 @@ function proceedToUpiPayment() {
     return;
   }
 
-  if (cleanPhone.length !== 10) {
-    alert("Please enter a valid 10-digit WhatsApp Number.");
+  if (cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+    alert("Please enter a valid 10-digit WhatsApp Number (starting with 6-9).");
     return;
   }
 
@@ -561,12 +561,12 @@ function proceedToUpiPayment() {
     onSuccess: function (res) {
       handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone);
     },
-    onFailure: function () {
-      alert("Payment was not completed. Please try again.");
+    onFailure: function (err) {
+      alert((err && err.message) ? err.message : "Payment was not completed. Please try again.");
     },
     onClose: function () {},
     onError: function (err) {
-      alert((err && err.message) ? err.message : "Payment error. Check Allowed Domains in dashboard.");
+      alert((err && err.message) ? err.message : "Payment error. Please check Allowed Domains in dashboard.");
     }
   });
 }
@@ -590,10 +590,14 @@ function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone
 
   lastPaidWhatsAppUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
 
+  const overlay = document.getElementById("cart-overlay");
+  const drawer = document.getElementById("cart-drawer");
   const titleEl = document.getElementById("cart-drawer-title");
   const step1 = document.getElementById("cart-step-1");
   const step2 = document.getElementById("cart-step-2");
 
+  if (overlay) overlay.classList.remove("hidden");
+  if (drawer) drawer.classList.remove("translate-x-full");
   if (titleEl) titleEl.textContent = "Payment Successful";
   if (step1) step1.classList.add("hidden");
   if (step2) {
