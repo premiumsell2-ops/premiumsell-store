@@ -26,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initHeroCarousel();
   updateCartUI();
   loadProducts();
+  checkPaymentReturn();
 
   const searchInput = document.getElementById("search-input");
   if (searchInput) {
@@ -428,7 +429,7 @@ function renderProductModalContent() {
 }
 
 // ==========================================
-// SHOPPING CART & PAYMENT GATEWAY (IFRAME MODE)
+// SHOPPING CART & PAYMENT GATEWAY (REDIRECT MODE)
 // ==========================================
 function addToCart(product, variant) {
   const variantLabel = variant ? variant.label : "Standard Plan";
@@ -547,8 +548,17 @@ function proceedToUpiPayment() {
   const totalAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
   const orderId = "PS-" + Date.now();
 
-  // Close cart drawer first so the iframe overlay appears clearly above everything
-  toggleCart(false);
+  // Save pending order before full-page redirect so it restores when customer returns
+  localStorage.setItem(
+    "premiumsell_pending_order",
+    JSON.stringify({
+      orderId: orderId,
+      name: name,
+      phone: cleanPhone,
+      totalAmount: totalAmount,
+      items: cart
+    })
+  );
 
   LearningQuePay.checkout({
     key: CONFIG.gatewayPublicKey,
@@ -559,10 +569,10 @@ function proceedToUpiPayment() {
       email: "orders@premiumsell.in",
       phone: cleanPhone
     },
-    returnUrl: window.location.origin + "/",
-    mode: "iframe",
+    returnUrl: window.location.origin + "/?lq_return=1",
+    mode: "redirect",
     onSuccess: function (res) {
-      handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone);
+      handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone, cart);
     },
     onFailure: function (err) {
       const msg = (err && (err.message || err.reason)) || "Payment was not completed. Please try again.";
@@ -579,11 +589,55 @@ function proceedToUpiPayment() {
   });
 }
 
-function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone) {
+function checkPaymentReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const isReturn =
+    params.has("lq_return") ||
+    params.has("order_id") ||
+    params.has("payment_id") ||
+    params.has("status");
+
+  if (!isReturn) return;
+
+  const rawPending = localStorage.getItem("premiumsell_pending_order");
+  // Clean URL query string without reloading
+  window.history.replaceState({}, document.title, window.location.pathname);
+
+  if (!rawPending) return;
+
+  const status = (params.get("status") || "").toLowerCase();
+  if (status === "failed" || status === "cancelled" || status === "failure") {
+    alert("Payment was cancelled or failed. Please try again.");
+    return;
+  }
+
+  try {
+    const pending = JSON.parse(rawPending);
+    const returnedRef =
+      params.get("order_id") ||
+      params.get("payment_id") ||
+      params.get("transaction_id") ||
+      pending.orderId;
+
+    handleGatewayPaymentSuccess(
+      { order_id: returnedRef },
+      pending.orderId,
+      pending.totalAmount,
+      pending.name,
+      pending.phone,
+      pending.items || cart
+    );
+  } catch (e) {
+    console.error("Error restoring return order:", e);
+  }
+}
+
+function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone, orderItems) {
+  const itemsList = orderItems && orderItems.length > 0 ? orderItems : cart;
   const gatewayRef =
     (res && (res.order_id || res.payment_id || res.transaction_id || res.id)) || orderId;
 
-  const itemsText = cart
+  const itemsText = itemsList
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
     .join("\n");
 
@@ -635,16 +689,15 @@ function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone
       </a>
 
       <button type="button" onclick="finishAndClearCart()" class="w-full py-2.5 text-xs text-slate-400 hover:text-white font-medium">
-        Done &amp; Continue Shopping
+        Done & Continue Shopping
       </button>
     `;
   }
-
-  window.open(lastPaidWhatsAppUrl, "_blank");
 }
 
 function finishAndClearCart() {
   cart = [];
+  localStorage.removeItem("premiumsell_pending_order");
   saveCart();
   updateCartUI();
   backToCartStep1();
