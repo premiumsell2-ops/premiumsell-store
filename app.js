@@ -679,7 +679,7 @@ function proceedToUpiPayment() {
 
   const baseTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const totalAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
-  const orderId = "PS-" + Date.now();
+  const orderId = "PS-" + Math.floor(100000 + Math.random() * 900000);
   const currentItemsSnapshot = JSON.parse(JSON.stringify(cart));
 
   isPaymentHandled = false;
