@@ -6,7 +6,9 @@ const CONFIG = {
   whatsappNumber: "916284854882",
   gatewayPublicKey: "lq_pk_9c7430850e533100ba189f9b",
   merchantUpi: "6284854882@okbizaxis",
-  currency: "₹"
+  currency: "₹",
+  // 👇 यहाँ अपना Google Apps Script Web App URL पेस्ट करें
+  googleSheetWebhookUrl: "https://script.google.com/macros/s/AKfycbzp72rWt-is0CVe3OozKphez5FvQviQnuPLW__QWYdeZJKG1-jK7YZWKkyLlXLCIntKdw/exec"
 };
 
 let products = [];
@@ -64,6 +66,72 @@ async function loadProducts() {
       grid.innerHTML = `<p class="col-span-full text-center text-sm text-slate-400 py-10">Unable to load products. Please check products.json formatting.</p>`;
     }
   }
+}
+
+// ==========================================
+// GOOGLE SHEET SYNC & DATE HELPER
+// ==========================================
+function formatDateOnly(dateObj) {
+  const dd = String(dateObj.getDate()).padStart(2, "0");
+  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const yyyy = dateObj.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+function estimateExpiryDate(items) {
+  const now = new Date();
+  let daysToAdd = 30; // डिफ़ॉल्ट 30 दिन (1 महीना)
+
+  const combinedText = (items || [])
+    .map((it) => `${it.name} ${it.variant}`.toLowerCase())
+    .join(" ");
+
+  if (/12\s*month|1\s*year|annual|yearly/i.test(combinedText)) {
+    daysToAdd = 365;
+  } else if (/6\s*month|half\s*year/i.test(combinedText)) {
+    daysToAdd = 180;
+  } else if (/3\s*month|quarter/i.test(combinedText)) {
+    daysToAdd = 90;
+  } else if (/2\s*month/i.test(combinedText)) {
+    daysToAdd = 60;
+  } else if (/15\s*day/i.test(combinedText)) {
+    daysToAdd = 15;
+  } else if (/7\s*day|1\s*week/i.test(combinedText)) {
+    daysToAdd = 7;
+  }
+
+  const expiry = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+  return formatDateOnly(expiry);
+}
+
+function syncOrderToGoogleSheet({ orderId, name, phone, items, amount, mode, status, refId }) {
+  if (!CONFIG.googleSheetWebhookUrl || CONFIG.googleSheetWebhookUrl.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
+    return;
+  }
+
+  const planSummary = (items || [])
+    .map((it) => `${it.name} (${it.variant}) x${it.qty}`)
+    .join(", ");
+
+  const payload = {
+    orderId: orderId,
+    orderDate: formatDateOnly(new Date()),
+    expiryDate: estimateExpiryDate(items),
+    name: name,
+    phone: phone,
+    plan: planSummary,
+    amount: amount,
+    mode: mode,
+    status: status,
+    refId: refId || "-"
+  };
+
+  fetch(CONFIG.googleSheetWebhookUrl, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  }).catch((err) => console.error("Google Sheet sync error:", err));
 }
 
 // ==========================================
@@ -500,9 +568,19 @@ function clearPendingOrder() {
   localStorage.removeItem("premiumsell_pending_order");
 }
 
-// Layer 2: Listen to postMessage events sent by LearningQuePay / Cashfree modal iframe
+// Layer 2: Secure postMessage Listener (Domain Locked)
 function setupGatewayMessageListener() {
+  const allowedOrigins = [
+    "https://pays.budgetdealz.in",
+    "https://pay.learningque.in",
+    "https://sdk.cashfree.com",
+    "https://api.cashfree.com"
+  ];
+
   window.addEventListener("message", (event) => {
+    const isAllowedOrigin = allowedOrigins.some((origin) => event.origin && event.origin.startsWith(origin));
+    if (!isAllowedOrigin) return;
+
     const raw = event.data;
     if (!raw) return;
 
@@ -544,7 +622,8 @@ function setupGatewayMessageListener() {
           pending.totalAmount,
           pending.name,
           pending.cleanPhone,
-          pending.items
+          pending.items,
+          "Website Gateway"
         );
       }
     }
@@ -567,7 +646,8 @@ function checkReturnUrlPaymentStatus() {
         pending.totalAmount,
         pending.name,
         pending.cleanPhone,
-        pending.items
+        pending.items,
+        "Website Gateway"
       );
     }
   }
@@ -600,9 +680,22 @@ function proceedToUpiPayment() {
   const baseTotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const totalAmount = Number.isInteger(baseTotal) ? baseTotal : Number(baseTotal.toFixed(2));
   const orderId = "PS-" + Date.now();
+  const currentItemsSnapshot = JSON.parse(JSON.stringify(cart));
 
   isPaymentHandled = false;
   savePendingOrder(orderId, totalAmount, name, cleanPhone);
+
+  // 1️⃣ कस्टमर के नाम-नंबर डालते ही Google Sheet में "Pending (Left Checkout)" सेव करें
+  syncOrderToGoogleSheet({
+    orderId: orderId,
+    name: name,
+    phone: cleanPhone,
+    items: currentItemsSnapshot,
+    amount: totalAmount,
+    mode: "Website Gateway",
+    status: "Pending (Left Checkout)",
+    refId: "-"
+  });
 
   if (typeof LearningQuePay !== "undefined") {
     const originalWindowOpen = window.open;
@@ -629,18 +722,18 @@ function proceedToUpiPayment() {
         mode: "modal",
         onSuccess: function (res) {
           closeInPagePaymentModal();
-          handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone);
+          handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone, currentItemsSnapshot, "Website Gateway");
         },
         onFailure: function (err) {
           closeInPagePaymentModal();
-          alert((err && (err.message || err.reason)) || "Payment was not completed. Please try again.");
+          const reason = (err && (err.message || err.reason)) || "Payment was declined or cancelled.";
+          handleGatewayPaymentFailure(orderId, totalAmount, name, cleanPhone, currentItemsSnapshot, reason);
         },
         onClose: function () {
           closeInPagePaymentModal();
-          // Layer 3: Check if payment completed right before modal closed
           setTimeout(() => {
             if (!isPaymentHandled) {
-              verifyGatewayOrderStatusFallback(orderId, totalAmount, name, cleanPhone);
+              verifyGatewayOrderStatusFallback(orderId, totalAmount, name, cleanPhone, currentItemsSnapshot);
             }
           }, 800);
         },
@@ -662,7 +755,7 @@ function proceedToUpiPayment() {
 }
 
 // Layer 3 Fallback: Query LearningQuePay status endpoint if modal closed after payment
-async function verifyGatewayOrderStatusFallback(orderId, totalAmount, name, cleanPhone) {
+async function verifyGatewayOrderStatusFallback(orderId, totalAmount, name, cleanPhone, savedItems) {
   const endpoints = [
     `https://pays.budgetdealz.in/api/order-status?order_id=${encodeURIComponent(orderId)}&key=${encodeURIComponent(CONFIG.gatewayPublicKey)}`,
     `https://pay.learningque.in/api/order-status?order_id=${encodeURIComponent(orderId)}&key=${encodeURIComponent(CONFIG.gatewayPublicKey)}`
@@ -675,7 +768,10 @@ async function verifyGatewayOrderStatusFallback(orderId, totalAmount, name, clea
       const data = await res.json();
       const st = String(data.status || data.payment_status || (data.data && data.data.status) || "").toUpperCase();
       if ((st === "PAID" || st === "SUCCESS") && !isPaymentHandled) {
-        handleGatewayPaymentSuccess(data.data || data, orderId, totalAmount, name, cleanPhone);
+        handleGatewayPaymentSuccess(data.data || data, orderId, totalAmount, name, cleanPhone, savedItems, "Website Gateway");
+        return;
+      } else if (st === "FAILED" || st === "CANCELLED") {
+        handleGatewayPaymentFailure(orderId, totalAmount, name, cleanPhone, savedItems, "Payment failed on gateway.");
         return;
       }
     } catch {
@@ -743,7 +839,7 @@ function openInPageUpiModal(totalAmount, name, cleanPhone, orderId) {
         onclick="verifyInPageUpi('${orderId}', ${totalAmount}, '${name.replace(/'/g, "\\'")}', '${cleanPhone}')"
         class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-600/25"
       >
-        Verify & Complete Order ✓
+        Submit UTR for Verification ✓
       </button>
     </div>
   `;
@@ -769,34 +865,111 @@ function verifyInPageUpi(orderId, totalAmount, name, cleanPhone) {
     return;
   }
   closeInPagePaymentModal();
-  handleGatewayPaymentSuccess({ transaction_id: `${orderId} (UTR: ${utr})` }, orderId, totalAmount, name, cleanPhone);
+  handleGatewayPaymentSuccess(
+    { transaction_id: utr, isManualUpi: true },
+    orderId,
+    totalAmount,
+    name,
+    cleanPhone,
+    null,
+    "Manual UPI QR"
+  );
 }
 
-function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone, savedItems = null) {
+// ==========================================
+// PAYMENT FAILED RETRY SCREEN + SHEET SYNC
+// ==========================================
+function handleGatewayPaymentFailure(orderId, totalAmount, name, cleanPhone, savedItems, reasonText) {
+  if (isPaymentHandled) return;
+
+  syncOrderToGoogleSheet({
+    orderId: orderId,
+    name: name,
+    phone: cleanPhone,
+    items: savedItems || cart,
+    amount: totalAmount,
+    mode: "Website Gateway",
+    status: "Failed",
+    refId: reasonText
+  });
+
+  const overlay = document.getElementById("cart-overlay");
+  const drawer = document.getElementById("cart-drawer");
+  const titleEl = document.getElementById("cart-drawer-title");
+  const step1 = document.getElementById("cart-step-1");
+  const step2 = document.getElementById("cart-step-2");
+
+  if (overlay) overlay.classList.remove("hidden");
+  if (drawer) drawer.classList.remove("translate-x-full");
+  if (titleEl) titleEl.textContent = "Payment Failed";
+  if (step1) step1.classList.add("hidden");
+  if (step2) {
+    step2.classList.remove("hidden");
+    step2.innerHTML = `
+      <div class="bg-rose-500/10 border border-rose-500/35 rounded-2xl p-6 text-center space-y-3">
+        <div class="w-14 h-14 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto text-3xl font-bold">✕</div>
+        <h3 class="text-lg font-extrabold text-white">Payment Not Completed</h3>
+        <p class="text-xs text-slate-300 leading-relaxed">${reasonText}</p>
+        <div class="bg-[#0F1626] border border-slate-800 rounded-xl p-3 text-xs text-slate-300 space-y-1">
+          <p><strong class="text-white">Order ID:</strong> <span class="font-mono text-rose-300">${orderId}</span></p>
+          <p><strong class="text-white">Amount:</strong> ${CONFIG.currency}${totalAmount}</p>
+        </div>
+      </div>
+
+      <button type="button" onclick="backToCartStep1(); proceedToUpiPayment();" class="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3.5 rounded-xl text-sm transition shadow-lg shadow-violet-600/30">
+        Try Payment Again →
+      </button>
+
+      <button type="button" onclick="openInPageUpiModal(${totalAmount}, '${name.replace(/'/g, "\\'")}', '${cleanPhone}', '${orderId}')" class="w-full py-2.5 rounded-xl border border-slate-700 bg-[#0F1626] text-xs text-slate-200 hover:text-white font-semibold">
+        Pay via Direct UPI QR Instead
+      </button>
+    `;
+  }
+}
+
+// ==========================================
+// PAYMENT SUCCESS / MANUAL VERIFICATION SCREEN + SHEET SYNC
+// ==========================================
+function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone, savedItems = null, paymentMode = "Website Gateway") {
   if (isPaymentHandled) return;
   isPaymentHandled = true;
   clearPendingOrder();
 
   const orderItems = savedItems && savedItems.length > 0 ? savedItems : cart;
+  const isManualUpi = Boolean(res && res.isManualUpi) || paymentMode === "Manual UPI QR";
   const gatewayRef =
     (res && (res.order_id || res.gateway_order_id || res.payment_id || res.transaction_id || res.id)) || orderId;
+
+  syncOrderToGoogleSheet({
+    orderId: orderId,
+    name: name,
+    phone: cleanPhone,
+    items: orderItems,
+    amount: totalAmount,
+    mode: isManualUpi ? "Manual UPI QR" : "Website Gateway",
+    status: isManualUpi ? "UTR Submitted (Verify Bank)" : "Paid Online",
+    refId: isManualUpi ? `UTR: ${gatewayRef}` : gatewayRef
+  });
 
   const itemsText = orderItems
     .map((item, i) => `${i + 1}. *${item.name}* (${item.variant}) x${item.qty} = ${CONFIG.currency}${item.price * item.qty}`)
     .join("\n");
 
-  let message = `*PAID ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
+  let message = isManualUpi
+    ? `*MANUAL UPI ORDER (VERIFY UTR) - ${CONFIG.storeName.toUpperCase()}*\n\n`
+    : `*PAID ORDER - ${CONFIG.storeName.toUpperCase()}*\n\n`;
+
   message += `*Customer:* ${name}\n`;
   message += `*WhatsApp:* ${cleanPhone}\n`;
   message += `\n*Order Details:*\n${itemsText}\n\n`;
-  message += `*Amount Paid:* ${CONFIG.currency}${totalAmount}\n`;
-  message += `*Gateway Order ID:* ${gatewayRef}\n`;
-  message += `*Status:* ✅ Paid Online\n\n`;
+  message += `*Amount:* ${CONFIG.currency}${totalAmount}\n`;
+  message += isManualUpi
+    ? `*UTR / Ref No:* ${gatewayRef}\n*Status:* ⏳ Pending UTR Verification\n\n`
+    : `*Gateway Order ID:* ${gatewayRef}\n*Status:* ✅ Paid Online\n\n`;
   message += `Please activate my subscription!`;
 
   lastPaidWhatsAppUrl = `https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(message)}`;
 
-  // Clear cart immediately so user cannot accidentally pay twice
   cart = [];
   saveCart();
   updateCartUI();
@@ -809,36 +982,66 @@ function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone
 
   if (overlay) overlay.classList.remove("hidden");
   if (drawer) drawer.classList.remove("translate-x-full");
-  if (titleEl) titleEl.textContent = "Payment Successful";
+  if (titleEl) titleEl.textContent = isManualUpi ? "Verification Pending" : "Payment Successful";
   if (step1) step1.classList.add("hidden");
   if (step2) {
     step2.classList.remove("hidden");
-    step2.innerHTML = `
-      <div class="bg-emerald-500/10 border border-emerald-500/35 rounded-2xl p-6 text-center space-y-3">
-        <div class="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-3xl font-bold">✓</div>
-        <h3 class="text-lg font-extrabold text-white">Payment Confirmed!</h3>
-        <p class="text-xs text-slate-300 leading-relaxed">
-          Your payment of <strong class="text-emerald-400">${CONFIG.currency}${totalAmount}</strong> has been received.
-        </p>
-        <div class="bg-[#0F1626] border border-slate-800 rounded-xl p-3 text-xs text-slate-300 space-y-1">
-          <p><strong class="text-white">Order ID:</strong> <span class="font-mono text-violet-300">${gatewayRef}</span></p>
-          <p><strong class="text-white">Customer:</strong> ${name} (${cleanPhone})</p>
+
+    if (isManualUpi) {
+      step2.innerHTML = `
+        <div class="bg-amber-500/10 border border-amber-500/35 rounded-2xl p-6 text-center space-y-3">
+          <div class="w-14 h-14 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-3xl font-bold">⏳</div>
+          <h3 class="text-lg font-extrabold text-white">Payment Under Verification</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            We have received your UTR for <strong class="text-amber-300">${CONFIG.currency}${totalAmount}</strong>. Activation will start right after bank verification.
+          </p>
+          <div class="bg-[#0F1626] border border-slate-800 rounded-xl p-3 text-xs text-slate-300 space-y-1">
+            <p><strong class="text-white">UTR Ref:</strong> <span class="font-mono text-amber-300">${gatewayRef}</span></p>
+            <p><strong class="text-white">Customer:</strong> ${name} (${cleanPhone})</p>
+          </div>
         </div>
-      </div>
 
-      <a
-        href="${lastPaidWhatsAppUrl}"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold py-4 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
-      >
-        <span>Send Paid Order on WhatsApp →</span>
-      </a>
+        <a
+          href="${lastPaidWhatsAppUrl}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold py-4 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+        >
+          <span>Send UTR on WhatsApp for Activation →</span>
+        </a>
 
-      <button type="button" onclick="finishAndClearCart()" class="w-full py-2.5 text-xs text-slate-400 hover:text-white font-medium">
-        Done & Continue Shopping
-      </button>
-    `;
+        <button type="button" onclick="finishAndClearCart()" class="w-full py-2.5 text-xs text-slate-400 hover:text-white font-medium">
+          Done & Continue Shopping
+        </button>
+      `;
+    } else {
+      step2.innerHTML = `
+        <div class="bg-emerald-500/10 border border-emerald-500/35 rounded-2xl p-6 text-center space-y-3">
+          <div class="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-3xl font-bold">✓</div>
+          <h3 class="text-lg font-extrabold text-white">Payment Confirmed!</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Your payment of <strong class="text-emerald-400">${CONFIG.currency}${totalAmount}</strong> has been received.
+          </p>
+          <div class="bg-[#0F1626] border border-slate-800 rounded-xl p-3 text-xs text-slate-300 space-y-1">
+            <p><strong class="text-white">Order ID:</strong> <span class="font-mono text-violet-300">${gatewayRef}</span></p>
+            <p><strong class="text-white">Customer:</strong> ${name} (${cleanPhone})</p>
+          </div>
+        </div>
+
+        <a
+          href="${lastPaidWhatsAppUrl}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="w-full bg-[#25D366] hover:bg-[#1ebe5d] text-white font-bold py-4 rounded-xl text-sm transition shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+        >
+          <span>Send Paid Order on WhatsApp →</span>
+        </a>
+
+        <button type="button" onclick="finishAndClearCart()" class="w-full py-2.5 text-xs text-slate-400 hover:text-white font-medium">
+          Done & Continue Shopping
+        </button>
+      `;
+    }
   }
 }
 
