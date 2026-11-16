@@ -111,5 +111,22 @@
       { "label": "1 MONTH 1 SCREEN PRIVATE", "mrp": 299, "price": 49 },
       { "label": "12 MONTHS 1 SCREEN PRIVATE", "mrp": 999, "price": 399 }
     ]
+  },
+  {
+    "id": "PRD-08",
+    "name": "Youtube Premium",
+    "category": "All subscription",
+    "mrp": 269,
+    "price": 99,
+    "inStock": true,
+    "image": "youtube-premium.png",
+    "shortRule": "🚨 Important Usage Guidelines: Order Delivery Within 6 Hours (As soon as possible).",
+    "description": "🚨 Important Usage Guidelines:\n\nOrder Delivery Within 6 hours. As soon as possible.\n\nYoutube Music + Youtube (Both Premium)\nOn Your Gmail ID\nAll Device Usable - TV, SmartPhone, Lap, PC etc.",
+    "moreDetails": "Ad-Free YouTube & YouTube Music • Activated on Your Own Gmail ID • Full Duration Warranty",
+    "variants": [
+      { "label": "1 MONTH", "mrp": 269, "price": 99 },
+      { "label": "6 MONTHS", "mrp": 1799, "price": 549 },
+      { "label": "12 MONTHS", "mrp": 3599, "price": 999 }
+    ]
   }
 ]
