@@ -7,7 +7,8 @@ const CONFIG = {
   gatewayPublicKey: "lq_pk_9c7430850e533100ba189f9b",
   merchantUpi: "6284854882@okbizaxis",
   currency: "₹",
-  googleSheetWebhookUrl: "https://script.google.com/macros/s/AKfycbzp72rWt-is0CVe3OozKphez5FvQviQnuPLW__QWYdeZJKG1-jK7YZWKkyLlXLCIntKdw/exec"
+  googleSheetWebhookUrl: "https://script.google.com/macros/s/AKfycbzp72rWt-is0CVe3OozKphez5FvQviQnuPLW__QWYdeZJKG1-jK7YZWKkyLlXLCIntKdw/exec",
+  productsCacheKey: "premiumsell_products_cache_v11"
 };
 
 let products = [];
@@ -52,20 +53,79 @@ function setupWhatsAppLinks() {
   if (footerWa) footerWa.href = waUrl;
 }
 
+// ==========================================
+// INSTANT PRODUCT LOADING + BACKGROUND SHEET SYNC
+// ==========================================
 async function loadProducts() {
+  let renderedFromCache = false;
+
+  // 1. Instant Load from LocalStorage Cache (0.1s)
+  try {
+    const cachedRaw = localStorage.getItem(CONFIG.productsCacheKey);
+    if (cachedRaw) {
+      const cachedProducts = JSON.parse(cachedRaw);
+      if (Array.isArray(cachedProducts) && cachedProducts.length > 0) {
+        products = cachedProducts;
+        populateCategories();
+        renderProducts();
+        renderedFromCache = true;
+      }
+    }
+  } catch (e) {
+    console.warn("Cache read skipped:", e);
+  }
+
+  // 2. Load fresh products.json (without waiting for Google Sheet)
   try {
     const res = await fetch(`products.json?v=${Date.now()}`);
-    products = await res.json();
-    await syncProductsFromGoogleSheet();
-    populateCategories();
-    renderProducts();
+    if (res.ok) {
+      const baseProducts = await res.json();
+      if (Array.isArray(baseProducts) && baseProducts.length > 0) {
+        // If cache existed, preserve live prices/stock until sheet sync finishes
+        if (renderedFromCache && products.length > 0) {
+          baseProducts.forEach((bp) => {
+            const cachedMatch = products.find((cp) => cp.id === bp.id);
+            if (!cachedMatch) return;
+            if (bp.variants && bp.variants.length > 0 && cachedMatch.variants) {
+              bp.variants.forEach((bv) => {
+                const cv = cachedMatch.variants.find(
+                  (v) => String(v.label || "").trim().toLowerCase() === String(bv.label || "").trim().toLowerCase()
+                );
+                if (cv) {
+                  bv.mrp = cv.mrp;
+                  bv.price = cv.price;
+                  bv.inStock = cv.inStock;
+                }
+              });
+              bp.inStock = bp.variants.some((v) => v.inStock !== false);
+            } else {
+              bp.mrp = cachedMatch.mrp;
+              bp.price = cachedMatch.price;
+              bp.inStock = cachedMatch.inStock;
+            }
+          });
+        }
+
+        products = baseProducts;
+        if (!renderedFromCache) {
+          populateCategories();
+          renderProducts();
+        }
+      }
+    }
   } catch (err) {
-    console.error("Error loading products:", err);
-    const grid = document.getElementById("product-grid");
-    if (grid) {
-      grid.innerHTML = `<p class="col-span-full text-center text-sm text-slate-400 py-10">Unable to load products. Please check products.json formatting.</p>`;
+    console.error("Error loading products.json:", err);
+    if (!renderedFromCache) {
+      const grid = document.getElementById("product-grid");
+      if (grid) {
+        grid.innerHTML = `<p class="col-span-full text-center text-sm text-slate-400 py-10">Unable to load products. Please check products.json formatting.</p>`;
+      }
+      return;
     }
   }
+
+  // 3. Background Sync from Google Sheet (updates UI silently if prices/stock changed)
+  syncProductsFromGoogleSheet();
 }
 
 // ==========================================
@@ -81,6 +141,8 @@ async function syncProductsFromGoogleSheet() {
     if (!res.ok) return;
     const data = await res.json();
     if (!data || !Array.isArray(data.products) || data.products.length === 0) return;
+
+    const beforeSnapshot = JSON.stringify(products);
 
     const sheetRowsByProductId = {};
     data.products.forEach((row) => {
@@ -114,8 +176,27 @@ async function syncProductsFromGoogleSheet() {
         product.inStock = Boolean(singleRow.inStock);
       }
     });
+
+    const afterSnapshot = JSON.stringify(products);
+    localStorage.setItem(CONFIG.productsCacheKey, afterSnapshot);
+
+    // Re-render only if prices or stock actually changed in Google Sheet
+    if (beforeSnapshot !== afterSnapshot) {
+      populateCategories();
+      renderProducts();
+
+      // If user currently has a product modal open, refresh its prices/stock live too
+      const modal = document.getElementById("product-modal");
+      if (selectedProduct && modal && !modal.classList.contains("hidden")) {
+        const updated = products.find((p) => p.id === selectedProduct.id);
+        if (updated) {
+          selectedProduct = updated;
+          renderProductModalContent();
+        }
+      }
+    }
   } catch (err) {
-    console.warn("Google Sheet products sync skipped (using products.json fallback):", err);
+    console.warn("Google Sheet products sync skipped (using cached/default products):", err);
   }
 }
 
@@ -512,7 +593,7 @@ function renderProductModalContent() {
                   <div onclick="openProductModal('${item.id}'); document.getElementById('product-modal').scrollTo({top: 0, behavior: 'smooth'});"
                     class="w-36 sm:w-44 flex-shrink-0 bg-[#131A2A] border border-slate-800 hover:border-violet-500/60 rounded-xl overflow-hidden cursor-pointer transition flex flex-col">
                     <div class="relative aspect-square bg-[#0F1626]">
-                      <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover ${itemOut ? "opacity-40" : ""}" />
+                      <img src="${item.image}" alt="${item.name}" loading="lazy" class="w-full h-full object-cover ${itemOut ? "opacity-40" : ""}" />
                       ${itemDisc > 0 ? `<span class="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">${itemDisc}% OFF</span>` : ""}
                       ${itemOut ? `<span class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-[10px] font-bold uppercase">Sold Out</span>` : ""}
                     </div>
