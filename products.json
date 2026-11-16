@@ -80,5 +80,20 @@
       { "label": "1 YEAR WITH ADS", "mrp": 899, "price": 749 },
       { "label": "1 YEAR (4K, WITHOUT ADS)", "mrp": 2199, "price": 1799 }
     ]
+  },
+  {
+    "id": "PRD-06",
+    "name": "SonyLIV Premium (ON YOUR ID)",
+    "category": "All subscription",
+    "mrp": 999,
+    "price": 499,
+    "inStock": true,
+    "image": "sonyliv.jpg",
+    "shortRule": "🚫 IMPORTANT RULES 🚫 Order Delivery Within 6 Hours (As soon as possible).",
+    "description": "*🚫 IMPORTANT RULES 🚫*\n\nOrder Delivery Within 6 hours. As soon as possible.\n\nOn Your Number - Private Subscription\nAll Device Usable - TV, SmartPhone, Lap, PC etc.",
+    "moreDetails": "Direct activation on your own mobile number • Full 12 Months Warranty",
+    "variants": [
+      { "label": "12 MONTHS LIV PREMIUM", "mrp": 999, "price": 499 }
+    ]
   }
 ]
