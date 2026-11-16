@@ -62,5 +62,23 @@
       { "label": "1 Year 4k 1 SCREEN PRIVATE", "mrp": 2099, "price": 899 },
       { "label": "1 Year HD ON YOUR NUMBER", "mrp": 999, "price": 399 }
     ]
+  },
+  {
+    "id": "PRD-05",
+    "name": "JioHotstar ON YOUR NUMBER",
+    "category": "All subscription",
+    "mrp": 299,
+    "price": 99,
+    "inStock": true,
+    "image": "jiohotstar.jpg",
+    "shortRule": "🚨 Important Usage Guidelines: Order Delivery Within 6 Hours (As soon as possible).",
+    "description": "🚨 Important Usage Guidelines:\n\nOrder Delivery Within 6 hours. As soon as possible.\n\nJioHotstar Subscription – Private\n\nEnjoy unlimited entertainment with Hotstar Premium!\nWatch the latest movies, exclusive series, live sports (IPL, cricket, football & more), Disney+ content, and more in stunning HD quality.\n\n• Private Plan – 100% dedicated access, no interruptions.\n• Sharing Plan – Cost-effective option for casual viewers (limited device access).",
+    "moreDetails": "Direct activation on your own mobile number • Full Duration Warranty",
+    "variants": [
+      { "label": "1 MONTH WITH ADS", "mrp": 299, "price": 99 },
+      { "label": "6 MONTHS WITH ADS", "mrp": 549, "price": 459 },
+      { "label": "1 YEAR WITH ADS", "mrp": 899, "price": 749 },
+      { "label": "1 YEAR (4K, WITHOUT ADS)", "mrp": 2199, "price": 1799 }
+    ]
   }
 ]
