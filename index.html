@@ -374,9 +374,10 @@
       </div>
     </div>
 
-    <div id="product-modal-content" class="max-w-7xl mx-auto px-4 sm:px-8 pt-6 pb-28"></div>
+    <div id="product-modal-content" class="max-w-7xl mx-auto px-4 sm:px-8 pt-6 pb-28 md:pb-12"></div>
 
-    <div class="fixed bottom-0 left-0 right-0 z-30 bg-[#131A2A]/95 backdrop-blur-md border-t border-slate-800 p-3">
+    <!-- Mobile Sticky Bottom Bar (Hidden on Desktop) -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-[#131A2A]/95 backdrop-blur-md border-t border-slate-800 p-3">
       <div class="max-w-xl mx-auto grid grid-cols-2 gap-3">
         <button 
           id="modal-add-btn"
@@ -494,6 +495,6 @@
       if (activeBtn) activeBtn.className = "policy-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-violet-600 text-white";
     }
   </script>
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>
