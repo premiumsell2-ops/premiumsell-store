@@ -45,5 +45,22 @@
       { "label": "1 MONTH 2 SCREEN PRIVATE", "mrp": 1298, "price": 279 },
       { "label": "3 MONTHS 1 SCREEN PRIVATE", "mrp": 2499, "price": 399 }
     ]
+  },
+  {
+    "id": "PRD-04",
+    "name": "Zee5",
+    "category": "All subscription",
+    "mrp": 299,
+    "price": 99,
+    "inStock": true,
+    "image": "zee5.jpg",
+    "shortRule": "🚨 Important Usage Guidelines: Order Delivery Within 6 Hours (As soon as possible).",
+    "description": "🚨 Important Usage Guidelines:\n\nOrder Delivery Within 6 hours. As soon as possible.\n\nAll Device Usable - TV, Smartphone, Lap, PC etc.\n🚫 Login on only one device at a time\n🚫 Do NOT change email/Name/Password.\n🚫 Do NOT add or change mobile number\n🚫 Do NOT share your Account details to others.",
+    "moreDetails": "Full Access to Zee5 Movies, Web Series & Live TV • Full Duration Warranty",
+    "variants": [
+      { "label": "1 MONTH 1 SCREEN PRIVATE", "mrp": 299, "price": 99 },
+      { "label": "1 Year 4k 1 SCREEN PRIVATE", "mrp": 2099, "price": 899 },
+      { "label": "1 Year HD ON YOUR NUMBER", "mrp": 999, "price": 399 }
+    ]
   }
 ]
