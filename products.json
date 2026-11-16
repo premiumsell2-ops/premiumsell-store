@@ -95,5 +95,21 @@
     "variants": [
       { "label": "12 MONTHS LIV PREMIUM", "mrp": 999, "price": 499 }
     ]
+  },
+  {
+    "id": "PRD-07",
+    "name": "Crunchyroll",
+    "category": "All subscription",
+    "mrp": 299,
+    "price": 49,
+    "inStock": true,
+    "image": "crunchyroll.jpg",
+    "shortRule": "🚨 Important Usage Guidelines: Order Delivery Within 6 Hours (As soon as possible).",
+    "description": "🚨 Important Usage Guidelines:\n\nOrder Delivery Within 6 hours. As soon as possible.\n\nAll Device Usable - TV, Smartphone, Lap, PC etc.(one month plan not for iPhone)\n🚫 Login on only one device at a time\n🚫 Do NOT change email/Name/Password.\n🚫 Do NOT add or change mobile number\n🚫 Do NOT share your Account details to others.",
+    "moreDetails": "Ad-Free Anime Streaming • Private Screen • Full Duration Warranty",
+    "variants": [
+      { "label": "1 MONTH 1 SCREEN PRIVATE", "mrp": 299, "price": 49 },
+      { "label": "12 MONTHS 1 SCREEN PRIVATE", "mrp": 999, "price": 399 }
+    ]
   }
 ]
