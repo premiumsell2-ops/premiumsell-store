@@ -57,6 +57,7 @@ async function loadProducts() {
   try {
     const res = await fetch(`products.json?v=${Date.now()}`);
     products = await res.json();
+    await syncProductsFromGoogleSheet();
     populateCategories();
     renderProducts();
   } catch (err) {
@@ -65,6 +66,58 @@ async function loadProducts() {
     if (grid) {
       grid.innerHTML = `<p class="col-span-full text-center text-sm text-slate-400 py-10">Unable to load products. Please check products.json formatting.</p>`;
     }
+  }
+}
+
+// ==========================================
+// GOOGLE SHEET LIVE PRODUCTS SYNC (PRICE & STOCK)
+// ==========================================
+async function syncProductsFromGoogleSheet() {
+  if (!CONFIG.googleSheetWebhookUrl || CONFIG.googleSheetWebhookUrl.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
+    return;
+  }
+
+  try {
+    const res = await fetch(`${CONFIG.googleSheetWebhookUrl}?v=${Date.now()}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || !Array.isArray(data.products) || data.products.length === 0) return;
+
+    const sheetRowsByProductId = {};
+    data.products.forEach((row) => {
+      const pid = String(row.id || "").trim();
+      if (!pid) return;
+      if (!sheetRowsByProductId[pid]) sheetRowsByProductId[pid] = [];
+      sheetRowsByProductId[pid].push(row);
+    });
+
+    products.forEach((product) => {
+      const rows = sheetRowsByProductId[product.id];
+      if (!rows || rows.length === 0) return;
+
+      if (product.variants && product.variants.length > 0) {
+        product.variants.forEach((variant) => {
+          const match = rows.find(
+            (r) => String(r.variant || "").trim().toLowerCase() === String(variant.label || "").trim().toLowerCase()
+          );
+          if (match) {
+            if (match.mrp > 0) variant.mrp = Number(match.mrp);
+            if (match.price > 0) variant.price = Number(match.price);
+            variant.inStock = Boolean(match.inStock);
+          }
+        });
+        // Agar saare variants out of stock hain toh poora product out of stock mark ho jayega
+        const anyVariantAvailable = product.variants.some((v) => v.inStock !== false);
+        product.inStock = anyVariantAvailable;
+      } else {
+        const singleRow = rows[0];
+        if (singleRow.mrp > 0) product.mrp = Number(singleRow.mrp);
+        if (singleRow.price > 0) product.price = Number(singleRow.price);
+        product.inStock = Boolean(singleRow.inStock);
+      }
+    });
+  } catch (err) {
+    console.warn("Google Sheet products sync skipped (using products.json fallback):", err);
   }
 }
 
@@ -282,11 +335,14 @@ function renderProducts() {
 
   grid.innerHTML = filtered
     .map((product) => {
-      const baseVariant = product.variants && product.variants.length > 0 ? product.variants[0] : null;
-      const displayPrice = baseVariant ? baseVariant.price : product.price;
-      const displayMrp = baseVariant ? baseVariant.mrp : product.mrp;
+      const variants = product.variants || [];
+      const firstAvailableVariant = variants.find((v) => v.inStock !== false) || variants[0] || null;
+      const displayPrice = firstAvailableVariant ? firstAvailableVariant.price : product.price;
+      const displayMrp = firstAvailableVariant ? firstAvailableVariant.mrp : product.mrp;
       const discount = displayMrp > displayPrice ? Math.round(((displayMrp - displayPrice) / displayMrp) * 100) : 0;
-      const outOfStock = product.inStock === false;
+      const outOfStock =
+        product.inStock === false ||
+        (variants.length > 0 && variants.every((v) => v.inStock === false));
 
       return `
         <div onclick="openProductModal('${product.id}')" class="group bg-[#131A2A] border border-slate-800 hover:border-violet-500/60 rounded-xl overflow-hidden flex flex-col cursor-pointer transition shadow-md">
@@ -312,7 +368,7 @@ function renderProducts() {
                   : "bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/40"
               }"
             >
-              ${outOfStock ? "Sold Out" : product.variants && product.variants.length > 1 ? "Select Plan" : "View Plan"}
+              ${outOfStock ? "Sold Out" : variants.length > 1 ? "Select Plan" : "View Plan"}
             </button>
           </div>
         </div>
@@ -322,14 +378,16 @@ function renderProducts() {
 }
 
 // ==========================================
-// PRODUCT DETAIL MODAL
+// PRODUCT DETAIL MODAL (MOBILE STACKED + DESKTOP COMPACT)
 // ==========================================
 function openProductModal(productId) {
   const product = products.find((p) => p.id === productId);
   if (!product) return;
 
   selectedProduct = product;
-  selectedVariantIndex = 0;
+  const variants = product.variants || [];
+  const firstInStockIdx = variants.findIndex((v) => v.inStock !== false);
+  selectedVariantIndex = firstInStockIdx >= 0 ? firstInStockIdx : 0;
   showAllVariants = false;
   renderProductModalContent();
 
@@ -348,6 +406,8 @@ function closeProductModal() {
 }
 
 function selectVariant(index) {
+  const variants = selectedProduct?.variants || [];
+  if (variants[index] && variants[index].inStock === false) return;
   selectedVariantIndex = index;
   renderProductModalContent();
 }
@@ -355,6 +415,16 @@ function selectVariant(index) {
 function toggleVariantsExpand() {
   showAllVariants = !showAllVariants;
   renderProductModalContent();
+}
+
+function handleDesktopModalAdd() {
+  if (!selectedProduct) return;
+  const variants = selectedProduct.variants || [];
+  const activeVariant = variants.length > 0 ? variants[selectedVariantIndex] : null;
+  if (selectedProduct.inStock === false || (activeVariant && activeVariant.inStock === false)) return;
+  addToCart(selectedProduct, activeVariant);
+  closeProductModal();
+  toggleCart(true);
 }
 
 function renderProductModalContent() {
@@ -368,10 +438,12 @@ function renderProductModalContent() {
   const price = activeVariant ? activeVariant.price : selectedProduct.price;
   const mrp = activeVariant ? activeVariant.mrp : selectedProduct.mrp;
   const discount = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
-  const outOfStock = selectedProduct.inStock === false;
+  const isCurrentOutOfStock =
+    selectedProduct.inStock === false ||
+    (activeVariant && activeVariant.inStock === false);
 
-  const visibleVariants = showAllVariants ? variants : variants.slice(0, 3);
-  const hasMoreThanThree = variants.length > 3;
+  const visibleVariants = showAllVariants ? variants : variants.slice(0, 4);
+  const hasMoreVariants = variants.length > 4;
 
   const variantsHtml = hasVariants
     ? `
@@ -379,29 +451,36 @@ function renderProductModalContent() {
         <p class="text-xs font-bold uppercase tracking-wider text-slate-300 mb-3">
           SELECT :: <span class="text-violet-400">${activeVariant.label}</span>
         </p>
-        <div class="flex flex-col gap-2.5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           ${visibleVariants
             .map((v, idx) => {
               const isSelected = idx === selectedVariantIndex;
+              const isVarOut = v.inStock === false;
               return `
                 <button
                   type="button"
-                  onclick="selectVariant(${idx})"
-                  class="w-full text-left px-4 py-3.5 rounded-lg text-xs sm:text-sm transition flex items-center justify-between gap-3 focus:outline-none ${
-                    isSelected
+                  ${isVarOut ? "disabled" : `onclick="selectVariant(${idx})"`}
+                  class="w-full text-left px-3.5 py-3 rounded-lg text-xs sm:text-sm transition flex items-center justify-between gap-2 focus:outline-none ${
+                    isVarOut
+                      ? "bg-[#0F1626] border border-slate-800 text-slate-500 cursor-not-allowed opacity-65"
+                      : isSelected
                       ? "bg-[#312E81]/60 border-2 border-white text-white font-bold shadow-[0_0_16px_rgba(139,92,246,0.35)]"
                       : "bg-[#131A2A] border border-slate-700 text-slate-200 font-medium hover:border-slate-500"
                   }"
                 >
-                  <span class="truncate uppercase">${v.label}</span>
-                  <span class="flex-shrink-0 font-bold text-white">${CONFIG.currency}${v.price}</span>
+                  <span class="truncate uppercase ${isVarOut ? "line-through" : ""}">${v.label}</span>
+                  ${
+                    isVarOut
+                      ? `<span class="flex-shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">Out of Stock</span>`
+                      : `<span class="flex-shrink-0 font-bold text-white">${CONFIG.currency}${v.price}</span>`
+                  }
                 </button>
               `;
             })
             .join("")}
         </div>
         ${
-          hasMoreThanThree
+          hasMoreVariants
             ? `<button type="button" onclick="toggleVariantsExpand()" class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-400 hover:text-violet-300 transition">
                 <span>${showAllVariants ? "− View less" : "+ View more"}</span>
               </button>`
@@ -412,11 +491,14 @@ function renderProductModalContent() {
     : "";
 
   container.innerHTML = `
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-10 items-start">
-      <div class="bg-[#131A2A] border border-slate-800 rounded-2xl p-3 sm:p-5 flex items-center justify-center md:sticky md:top-24">
-        <img src="${selectedProduct.image}" alt="${selectedProduct.name}" class="w-full h-auto max-h-[540px] object-contain rounded-xl" />
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-start">
+      <!-- Image Box: Mobile Padded Card, Desktop Edge-to-Edge Square -->
+      <div class="md:col-span-5 bg-[#131A2A] md:bg-transparent border border-slate-800 md:border-0 rounded-2xl p-3 sm:p-5 md:p-0 flex items-center justify-center md:sticky md:top-24">
+        <img src="${selectedProduct.image}" alt="${selectedProduct.name}" class="w-full h-auto max-h-[540px] md:max-h-none md:aspect-square object-contain md:object-cover rounded-xl md:rounded-2xl md:border md:border-slate-800 shadow-lg" />
       </div>
-      <div class="space-y-4">
+
+      <!-- Product Details -->
+      <div class="md:col-span-7 space-y-4">
         <div>
           <span class="text-xs font-semibold uppercase tracking-wider text-violet-400">${selectedProduct.category || "Subscription"}</span>
           <h1 class="text-2xl sm:text-3xl font-extrabold text-white mt-1">${selectedProduct.name}</h1>
@@ -426,22 +508,54 @@ function renderProductModalContent() {
             ${discount > 0 ? `<span class="bg-emerald-600 text-white text-xs font-bold px-2.5 py-0.5 rounded">${discount}% OFF</span>` : ""}
           </div>
         </div>
+
         ${variantsHtml}
+
+        <!-- Desktop Inline Action Buttons (Hidden on Mobile, Mobile uses sticky footer bar) -->
+        <div class="hidden md:grid grid-cols-2 gap-3.5 pt-1">
+          <button
+            type="button"
+            onclick="handleDesktopModalAdd()"
+            ${isCurrentOutOfStock ? "disabled" : ""}
+            class="w-full py-3.5 rounded-xl font-bold text-sm transition shadow-lg ${
+              isCurrentOutOfStock
+                ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                : "bg-violet-600 hover:bg-violet-500 text-white shadow-violet-600/30"
+            }"
+          >
+            ${isCurrentOutOfStock ? "Out of Stock" : "Buy Now"}
+          </button>
+          <button
+            type="button"
+            onclick="handleDesktopModalAdd()"
+            ${isCurrentOutOfStock ? "disabled" : ""}
+            class="w-full py-3.5 rounded-xl border border-slate-600 bg-[#131A2A] hover:bg-slate-800 text-white font-semibold text-sm transition ${
+              isCurrentOutOfStock ? "opacity-50 cursor-not-allowed" : ""
+            }"
+          >
+            Add to Cart
+          </button>
+        </div>
+
         ${selectedProduct.shortRule ? `<div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs sm:text-sm leading-relaxed">${selectedProduct.shortRule}</div>` : ""}
+
         <div>
           <h3 class="text-sm sm:text-base font-bold text-white mb-2">Product Description</h3>
           <div class="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">${selectedProduct.description || ""}</div>
         </div>
+
         ${selectedProduct.moreDetails ? `<div class="pt-3 border-t border-slate-800 text-xs sm:text-sm text-slate-400">${selectedProduct.moreDetails}</div>` : ""}
       </div>
     </div>
   `;
 
+  // Mobile sticky footer buttons
   const addBtn = document.getElementById("modal-add-btn");
   const buyBtn = document.getElementById("modal-buy-btn");
   if (addBtn && buyBtn) {
-    addBtn.disabled = outOfStock;
-    buyBtn.disabled = outOfStock;
+    addBtn.disabled = isCurrentOutOfStock;
+    buyBtn.disabled = isCurrentOutOfStock;
+    buyBtn.textContent = isCurrentOutOfStock ? "Out of Stock" : "Buy Now";
     addBtn.onclick = () => { addToCart(selectedProduct, activeVariant); closeProductModal(); toggleCart(true); };
     buyBtn.onclick = () => { addToCart(selectedProduct, activeVariant); closeProductModal(); toggleCart(true); };
   }
@@ -451,6 +565,7 @@ function renderProductModalContent() {
 // SHOPPING CART & MULTI-LAYER PAYMENT VERIFICATION
 // ==========================================
 function addToCart(product, variant) {
+  if (product.inStock === false || (variant && variant.inStock === false)) return;
   const variantLabel = variant ? variant.label : "Standard Plan";
   const price = variant ? variant.price : product.price;
   const cartKey = `${product.id}__${variantLabel}`;
