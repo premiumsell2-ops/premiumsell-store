@@ -7,7 +7,6 @@ const CONFIG = {
   gatewayPublicKey: "lq_pk_9c7430850e533100ba189f9b",
   merchantUpi: "6284854882@okbizaxis",
   currency: "₹",
-  // 👇 यहाँ अपना Google Apps Script Web App URL पेस्ट करें
   googleSheetWebhookUrl: "https://script.google.com/macros/s/AKfycbzp72rWt-is0CVe3OozKphez5FvQviQnuPLW__QWYdeZJKG1-jK7YZWKkyLlXLCIntKdw/exec"
 };
 
@@ -106,7 +105,6 @@ async function syncProductsFromGoogleSheet() {
             variant.inStock = Boolean(match.inStock);
           }
         });
-        // Agar saare variants out of stock hain toh poora product out of stock mark ho jayega
         const anyVariantAvailable = product.variants.some((v) => v.inStock !== false);
         product.inStock = anyVariantAvailable;
       } else {
@@ -133,7 +131,7 @@ function formatDateOnly(dateObj) {
 
 function estimateExpiryDate(items) {
   const now = new Date();
-  let daysToAdd = 30; // डिफ़ॉल्ट 30 दिन (1 महीना)
+  let daysToAdd = 30;
 
   const combinedText = (items || [])
     .map((it) => `${it.name} ${it.variant}`.toLowerCase())
@@ -308,7 +306,7 @@ function clearSearch() {
 }
 
 // ==========================================
-// RENDER PRODUCT GRID
+// RENDER PRODUCT GRID (COMPACT ON DESKTOP, UNCHANGED ON MOBILE)
 // ==========================================
 function renderProducts() {
   const grid = document.getElementById("product-grid");
@@ -351,18 +349,18 @@ function renderProducts() {
             ${discount > 0 ? `<span class="absolute top-2 left-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">${discount}% OFF</span>` : ""}
             ${outOfStock ? `<span class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-xs font-bold uppercase tracking-wider">Out of Stock</span>` : ""}
           </div>
-          <div class="p-3 flex-1 flex flex-col justify-between">
+          <div class="p-3 md:p-2.5 flex-1 flex flex-col justify-between">
             <div>
-              <h4 class="text-xs sm:text-sm font-bold text-slate-100 line-clamp-2 leading-snug">${product.name}</h4>
-              <div class="mt-2 flex items-baseline gap-1.5 flex-wrap">
-                <span class="text-sm sm:text-base font-extrabold text-white">${CONFIG.currency}${displayPrice}</span>
-                ${displayMrp > displayPrice ? `<span class="text-xs text-slate-400 line-through">${CONFIG.currency}${displayMrp}</span>` : ""}
+              <h4 class="text-xs font-bold text-slate-100 line-clamp-1 leading-snug">${product.name}</h4>
+              <div class="mt-1.5 flex items-baseline gap-1.5 flex-wrap">
+                <span class="text-sm font-extrabold text-white">${CONFIG.currency}${displayPrice}</span>
+                ${displayMrp > displayPrice ? `<span class="text-[11px] text-slate-400 line-through">${CONFIG.currency}${displayMrp}</span>` : ""}
               </div>
             </div>
             <button
               onclick="event.stopPropagation(); openProductModal('${product.id}')"
               ${outOfStock ? "disabled" : ""}
-              class="mt-3 w-full py-2 rounded-lg text-xs font-bold transition ${
+              class="mt-2.5 w-full py-1.5 rounded-lg text-[11px] font-bold transition ${
                 outOfStock
                   ? "bg-slate-800 text-slate-500 cursor-not-allowed"
                   : "bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/40"
@@ -378,7 +376,7 @@ function renderProducts() {
 }
 
 // ==========================================
-// PRODUCT DETAIL MODAL (MOBILE STACKED + DESKTOP COMPACT)
+// PRODUCT DETAIL MODAL + "MORE IN CATEGORY" SUGGESTIONS
 // ==========================================
 function openProductModal(productId) {
   const product = products.find((p) => p.id === productId);
@@ -490,6 +488,50 @@ function renderProductModalContent() {
     `
     : "";
 
+  // Related / Suggested Products ("More in category")
+  const relatedProducts = products.filter((p) => p.id !== selectedProduct.id);
+  const relatedHtml =
+    relatedProducts.length > 0
+      ? `
+        <div class="mt-12 pt-8 border-t border-slate-800">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-base sm:text-lg font-extrabold text-white">More in category</h3>
+            <button type="button" onclick="closeProductModal()" class="text-xs font-semibold text-violet-400 hover:text-violet-300">View all →</button>
+          </div>
+          <div class="flex gap-3.5 overflow-x-auto pb-3 no-scrollbar">
+            ${relatedProducts
+              .map((item) => {
+                const itemVars = item.variants || [];
+                const firstVar = itemVars.find((v) => v.inStock !== false) || itemVars[0] || null;
+                const itemPrice = firstVar ? firstVar.price : item.price;
+                const itemMrp = firstVar ? firstVar.mrp : item.mrp;
+                const itemDisc = itemMrp > itemPrice ? Math.round(((itemMrp - itemPrice) / itemMrp) * 100) : 0;
+                const itemOut = item.inStock === false || (itemVars.length > 0 && itemVars.every((v) => v.inStock === false));
+
+                return `
+                  <div onclick="openProductModal('${item.id}'); document.getElementById('product-modal').scrollTo({top: 0, behavior: 'smooth'});"
+                    class="w-36 sm:w-44 flex-shrink-0 bg-[#131A2A] border border-slate-800 hover:border-violet-500/60 rounded-xl overflow-hidden cursor-pointer transition flex flex-col">
+                    <div class="relative aspect-square bg-[#0F1626]">
+                      <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover ${itemOut ? "opacity-40" : ""}" />
+                      ${itemDisc > 0 ? `<span class="absolute top-1.5 left-1.5 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">${itemDisc}% OFF</span>` : ""}
+                      ${itemOut ? `<span class="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-[10px] font-bold uppercase">Sold Out</span>` : ""}
+                    </div>
+                    <div class="p-2.5 flex-1 flex flex-col justify-between">
+                      <h4 class="text-xs font-bold text-slate-100 line-clamp-1">${item.name}</h4>
+                      <div class="mt-1.5 flex items-baseline gap-1.5">
+                        <span class="text-xs sm:text-sm font-extrabold text-white">${CONFIG.currency}${itemPrice}</span>
+                        ${itemMrp > itemPrice ? `<span class="text-[10px] text-slate-400 line-through">${CONFIG.currency}${itemMrp}</span>` : ""}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+        </div>
+      `
+      : "";
+
   container.innerHTML = `
     <div class="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-start">
       <!-- Image Box: Mobile Padded Card, Desktop Edge-to-Edge Square -->
@@ -547,6 +589,8 @@ function renderProductModalContent() {
         ${selectedProduct.moreDetails ? `<div class="pt-3 border-t border-slate-800 text-xs sm:text-sm text-slate-400">${selectedProduct.moreDetails}</div>` : ""}
       </div>
     </div>
+
+    ${relatedHtml}
   `;
 
   // Mobile sticky footer buttons
@@ -683,7 +727,6 @@ function clearPendingOrder() {
   localStorage.removeItem("premiumsell_pending_order");
 }
 
-// Layer 2: Secure postMessage Listener (Domain Locked)
 function setupGatewayMessageListener() {
   const allowedOrigins = [
     "https://pays.budgetdealz.in",
@@ -745,7 +788,6 @@ function setupGatewayMessageListener() {
   });
 }
 
-// Check if browser returned via URL parameters
 function checkReturnUrlPaymentStatus() {
   const params = new URLSearchParams(window.location.search);
   const status = (params.get("status") || params.get("payment_status") || "").toUpperCase();
@@ -800,7 +842,6 @@ function proceedToUpiPayment() {
   isPaymentHandled = false;
   savePendingOrder(orderId, totalAmount, name, cleanPhone);
 
-  // 1️⃣ कस्टमर के नाम-नंबर डालते ही Google Sheet में "Pending (Left Checkout)" सेव करें
   syncOrderToGoogleSheet({
     orderId: orderId,
     name: name,
@@ -869,7 +910,6 @@ function proceedToUpiPayment() {
   openInPageUpiModal(totalAmount, name, cleanPhone, orderId);
 }
 
-// Layer 3 Fallback: Query LearningQuePay status endpoint if modal closed after payment
 async function verifyGatewayOrderStatusFallback(orderId, totalAmount, name, cleanPhone, savedItems) {
   const endpoints = [
     `https://pays.budgetdealz.in/api/order-status?order_id=${encodeURIComponent(orderId)}&key=${encodeURIComponent(CONFIG.gatewayPublicKey)}`,
@@ -991,9 +1031,6 @@ function verifyInPageUpi(orderId, totalAmount, name, cleanPhone) {
   );
 }
 
-// ==========================================
-// PAYMENT FAILED RETRY SCREEN + SHEET SYNC
-// ==========================================
 function handleGatewayPaymentFailure(orderId, totalAmount, name, cleanPhone, savedItems, reasonText) {
   if (isPaymentHandled) return;
 
@@ -1042,9 +1079,6 @@ function handleGatewayPaymentFailure(orderId, totalAmount, name, cleanPhone, sav
   }
 }
 
-// ==========================================
-// PAYMENT SUCCESS / MANUAL VERIFICATION SCREEN + SHEET SYNC
-// ==========================================
 function handleGatewayPaymentSuccess(res, orderId, totalAmount, name, cleanPhone, savedItems = null, paymentMode = "Website Gateway") {
   if (isPaymentHandled) return;
   isPaymentHandled = true;
