@@ -28,5 +28,22 @@
     "shortRule": "🚫 IMPORTANT: Order Delivery Within 6 Hours (As soon as possible). Activated on your personal number.",
     "description": "*🚫 IMPORTANT RULES 🚫*\n\n🔘 Order Delivery Within 6 hours. As soon as possible\n🔘 On Your Number - Private Subscription\n🔘 All Device Usable - TV, SmartPhone, Laptop, PC etc.\n\n📌 BENEFITS 👇\n\n🔘 1 Month SonyLIV Premium (Full HD)\n🔘 1 Month ZEE5 Full HD\n🔘 1 Month Prime Video (Full HD)\n🔘 1 Month JioHotstar (Full HD)",
     "moreDetails": "Direct activation on your own mobile number • Full 1 Month Warranty"
+  },
+  {
+    "id": "PRD-03",
+    "name": "Netflix Premium 4k",
+    "category": "All subscription",
+    "mrp": 649,
+    "price": 159,
+    "inStock": true,
+    "image": "netflix-4k.jpg",
+    "shortRule": "🚨 Important Usage Guidelines: Order Delivery Within 6 Hours (As soon as possible).",
+    "description": "🚨 Important Usage Guidelines:\n\nOrder Delivery Within 6 hours. As soon as possible.\n\nAll Device Usable - TV, Smartphone, Lap, PC etc.\n🚫 Login on only one device at a time\n🚫 Do NOT change email/Name/Password.\n🚫 Do NOT add or change mobile number\n🚫 Do NOT share your Account details to others.",
+    "moreDetails": "Ultra HD 4K + HDR Quality • Dedicated PIN-Protected Private Screen • Full Duration Warranty",
+    "variants": [
+      { "label": "1 MONTH 1 SCREEN PRIVATE", "mrp": 649, "price": 159 },
+      { "label": "1 MONTH 2 SCREEN PRIVATE", "mrp": 1298, "price": 279 },
+      { "label": "3 MONTHS 1 SCREEN PRIVATE", "mrp": 2499, "price": 399 }
+    ]
   }
 ]
